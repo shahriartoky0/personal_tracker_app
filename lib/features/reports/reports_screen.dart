@@ -58,7 +58,7 @@ class _RangeBar extends ConsumerWidget {
     final sel = ref.watch(reportRangeProvider);
     final n = ref.read(reportRangeProvider.notifier);
     return SizedBox(
-      height: 56,
+      height: 56 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: Tokens.s16, vertical: 6),
@@ -111,7 +111,7 @@ class _ReportBody extends ConsumerWidget {
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/taka-${range.from}_${range.to}.csv');
       await file.writeAsString('${TransactionCsv.bom}$csv');
-      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'Taka Tracker export'));
+      await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'SpendWise export'));
     } catch (e, st) {
       if (context.mounted) AppSnack.error(context, toFailure(e, st).message);
     }
@@ -125,7 +125,7 @@ class _ReportBody extends ConsumerWidget {
     final accName = view.accountNames;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Tokens.s16, 0, Tokens.s16, 96),
+      padding: const EdgeInsets.fromLTRB(Tokens.s16, 0, Tokens.s16, Tokens.s24),
       children: [
         Text('${view.range.from} → ${view.range.to}',
             style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
@@ -140,13 +140,15 @@ class _ReportBody extends ConsumerWidget {
             ),
           )
         else ...[
-          GridView.count(
-            crossAxisCount: 2,
+          GridView(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 12,
-            crossAxisSpacing: 12,
-            childAspectRatio: 2.2,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisSpacing: 12,
+              crossAxisSpacing: 12,
+              mainAxisExtent: 72 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
+            ),
             children: [
               _StatCard('Opening', report.openingBalance).pop(context, index: 0),
               _StatCard('Closing', report.closingBalance).pop(context, index: 1),
@@ -233,7 +235,8 @@ class _StatCard extends StatelessWidget {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(formatMoney(minor, showSign: sign),
+            child: AnimatedMoney(minor,
+                showSign: sign,
                 style: moneyStyle(context, size: 19, tabular: false, display: true, weight: FontWeight.w700)),
           ),
         ]),
@@ -299,8 +302,13 @@ class _CompareRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: Row(children: [
           Expanded(child: Text(label)),
-          Text('${formatMoney(now)} vs ${formatMoney(prev)}  ',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFeatures: moneyFeatures)),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('${formatMoney(now)} vs ${formatMoney(prev)}  ',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(fontFeatures: moneyFeatures)),
+            ),
+          ),
           DeltaText(percent: pct, upIsGood: upIsGood),
         ]),
       );

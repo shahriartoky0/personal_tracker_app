@@ -15,20 +15,45 @@ import '../features/transfers/people_screen.dart';
 import 'session_controller.dart';
 import 'shell.dart';
 import 'theme.dart';
+import '../features/settings/settings_page.dart';
+import '../core/ui/app_logo.dart';
 
 final _router = GoRouter(
   routes: [
     GoRoute(path: '/', builder: (c, s) => const _Gate()),
-    GoRoute(path: '/accounts', builder: (c, s) => const AccountsScreen()),
-    GoRoute(path: '/categories', builder: (c, s) => const CategoriesScreen()),
-    GoRoute(path: '/reminders', builder: (c, s) => const RemindersScreen()),
-    GoRoute(path: '/people', builder: (c, s) => const PeopleScreen()),
-    GoRoute(path: '/diagnostics', builder: (c, s) => const DiagnosticsScreen()),
+    GoRoute(
+      path: '/settings',
+      pageBuilder: (c, s) => sharedAxisPage(s, const SettingsPage()),
+    ),
+    GoRoute(
+      path: '/accounts',
+      pageBuilder: (c, s) => sharedAxisPage(s, const AccountsScreen()),
+    ),
+    GoRoute(
+      path: '/categories',
+      pageBuilder: (c, s) => sharedAxisPage(s, const CategoriesScreen()),
+    ),
+    GoRoute(
+      path: '/reminders',
+      pageBuilder: (c, s) => sharedAxisPage(s, const RemindersScreen()),
+    ),
+    GoRoute(
+      path: '/people',
+      pageBuilder: (c, s) => sharedAxisPage(s, const PeopleScreen()),
+    ),
+    GoRoute(
+      path: '/diagnostics',
+      pageBuilder: (c, s) => sharedAxisPage(s, const DiagnosticsScreen()),
+    ),
   ],
 );
 
 class TakaTrackerApp extends ConsumerWidget {
-  const TakaTrackerApp({super.key, required this.missingConfig, this.deviceZone});
+  const TakaTrackerApp({
+    super.key,
+    required this.missingConfig,
+    this.deviceZone,
+  });
   final bool missingConfig;
   final String? deviceZone;
 
@@ -36,6 +61,7 @@ class TakaTrackerApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (missingConfig) {
       return MaterialApp(
+        debugShowCheckedModeBanner: false,
         theme: buildTheme(Brightness.light),
         home: const Scaffold(
           body: Center(
@@ -52,7 +78,8 @@ class TakaTrackerApp extends ConsumerWidget {
     }
     ref.watch(resumeSyncProvider); // keeps the foreground-sync observer alive
     return MaterialApp.router(
-      title: 'Taka Tracker',
+      debugShowCheckedModeBanner: false,
+      title: 'SpendWise',
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
       routerConfig: _router,
@@ -75,7 +102,18 @@ class _Gate extends ConsumerWidget {
     });
 
     final Widget page = switch (s.phase) {
-      SessionPhase.checking => const Scaffold(body: Center(child: LottieView(LottieAsset.loading, size: 96))),
+      SessionPhase.checking => const Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AppLogo(size: 88, shadow: true),
+              SizedBox(height: 8),
+              LottieView(LottieAsset.loading, size: 72),
+            ],
+          ),
+        ),
+      ),
       SessionPhase.signedOut => const AuthScreen(),
       SessionPhase.bootstrapping => const BootstrapScreen(),
       SessionPhase.ready => const LockGate(child: AppShell()),

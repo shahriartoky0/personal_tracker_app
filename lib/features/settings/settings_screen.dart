@@ -8,6 +8,7 @@ import '../../app/providers.dart';
 import '../../core/data/data_reset.dart';
 import '../../core/data/remote/remote_gateway.dart';
 import '../../core/platform/app_lock.dart';
+import '../../core/ui/app_logo.dart';
 import '../../core/ui/app_snackbar.dart';
 import '../../core/error/ui_guard.dart';
 
@@ -19,6 +20,8 @@ class SettingsScreen extends ConsumerWidget {
     final profile = ref.watch(profileProvider).valueOrNull;
     return ListView(
       children: [
+        const _BrandHeader(),
+        const Divider(height: 1),
         ListTile(
           leading: const Icon(Icons.person_outline),
           title: Text(
@@ -327,5 +330,33 @@ Future<void> _danger(
     if (context.mounted) {
       AppSnack.error(context, 'Could not complete that. Please try again.');
     }
+  }
+}
+
+/// Logo, app name and version at the top of Settings.
+class _BrandHeader extends ConsumerWidget {
+  const _BrandHeader();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final theme = Theme.of(context);
+    final version = ref.watch(packageInfoProvider).valueOrNull?.version;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      child: Row(children: [
+        const AppLogo(size: 52, shadow: true),
+        const SizedBox(width: 14),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(AppLogo.name, style: theme.textTheme.titleLarge),
+            if (version != null)
+              Text(
+                'Version $version',
+                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              ),
+          ]),
+        ),
+      ]),
+    );
   }
 }

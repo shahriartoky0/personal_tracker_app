@@ -7,6 +7,7 @@ import '../common/widgets.dart';
 import '../../core/error/ui_guard.dart';
 import '../../core/error/app_error.dart';
 import '../../core/ui/app_tabs.dart';
+import '../../core/ui/category_style.dart';
 import '../../core/ui/async_value_view.dart';
 
 class CategoriesScreen extends ConsumerWidget {
@@ -47,15 +48,19 @@ class CategoriesScreen extends ConsumerWidget {
                   'Other',
                 ];
                 const income = ['Salary', 'Other income'];
-                for (final n in expense) {
-                  await repo.saveCategory(name: n, type: 'expense');
-                }
-                for (final n in income) {
-                  await repo.saveCategory(name: n, type: 'income');
+                for (final n in [...expense, ...income]) {
+                  final type = income.contains(n) ? 'income' : 'expense';
+                  await repo.saveCategory(
+                    name: n,
+                    type: type,
+                    icon: defaultIconKeyForName(n),
+                    color: defaultColorHexFor(n),
+                  );
                 }
               }),
             )
           : ListView(
+              padding: const EdgeInsets.only(bottom: 88),
               children: [
                 for (final type in const ['expense', 'income']) ...[
                   Padding(
@@ -67,6 +72,7 @@ class CategoriesScreen extends ConsumerWidget {
                   ),
                   for (final c in cats.where((c) => c.type == type))
                     ListTile(
+                      leading: CategoryAvatar.of(c, size: 40),
                       title: Text(c.name + (c.isArchived ? ' (archived)' : '')),
                       onTap: () => _edit(context, ref, category: c),
                       trailing: IconButton(
@@ -96,16 +102,106 @@ class CategoriesScreen extends ConsumerWidget {
     final name = TextEditingController(text: category?.name ?? '');
     final type = ValueNotifier<String>(category?.type ?? 'expense');
     final error = ValueNotifier<String?>(null);
+    // null = not chosen yet: icon follows the name, colour is derived.
+    final iconKey = ValueNotifier<String?>(
+      category == null ? null : resolveCategoryStyle(category).iconKey,
+    );
+    final colorHex = ValueNotifier<String?>(
+      category == null ? null : _hexOf(resolveCategoryStyle(category).color),
+    );
     await showDialog<void>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(category == null ? 'New category' : 'Edit category'),
-        content: Column(
+        content: SingleChildScrollView(
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            AnimatedBuilder(
+              animation: Listenable.merge([name, iconKey, colorHex]),
+              builder: (_, _) {
+                final key = iconKey.value ?? defaultIconKeyForName(name.text);
+                final color = parseHexColor(colorHex.value) ??
+                    parseHexColor(defaultColorHexFor(category?.id ?? name.text))!;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: CategoryAvatar(icon: categoryIcons[key]!, color: color, size: 64),
+                );
+              },
+            ),
             TextField(
               controller: name,
               decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            ValueListenableBuilder<String?>(
+              valueListenable: colorHex,
+              builder: (_, hex, _) => Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (final h in categoryPalette)
+                    Semantics(
+                      button: true,
+                      selected: hex == h,
+                      label: 'Colour $h',
+                      child: GestureDetector(
+                        onTap: () => colorHex.value = h,
+                        child: Container(
+                          width: 30,
+                          height: 30,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: parseHexColor(h),
+                            border: Border.all(
+                              color: hex == h ? Theme.of(ctx).colorScheme.onSurface : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: hex == h ? const Icon(Icons.check, size: 16, color: Colors.white) : null,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            AnimatedBuilder(
+              animation: Listenable.merge([name, iconKey, colorHex]),
+              builder: (_, _) {
+                final active = iconKey.value ?? defaultIconKeyForName(name.text);
+                final color = parseHexColor(colorHex.value) ??
+                    parseHexColor(defaultColorHexFor(category?.id ?? name.text))!;
+                return Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final e in categoryIcons.entries)
+                      Semantics(
+                        button: true,
+                        selected: active == e.key,
+                        label: e.key,
+                        child: InkWell(
+                          customBorder: const CircleBorder(),
+                          onTap: () => iconKey.value = e.key,
+                          child: Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: active == e.key ? color.withValues(alpha: 0.18) : null,
+                              border: Border.all(
+                                color: active == e.key ? color : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Icon(e.value, size: 20, color: active == e.key ? color : null),
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 8),
             if (category == null)
@@ -137,6 +233,7 @@ class CategoriesScreen extends ConsumerWidget {
             ),
           ],
         ),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -151,6 +248,8 @@ class CategoriesScreen extends ConsumerWidget {
                       id: category?.id,
                       name: name.text,
                       type: type.value,
+                      icon: iconKey.value ?? defaultIconKeyForName(name.text),
+                      color: colorHex.value ?? defaultColorHexFor(category?.id ?? name.text),
                     ),
               );
               if (r.isOk) {
@@ -167,5 +266,12 @@ class CategoriesScreen extends ConsumerWidget {
     name.dispose();
     type.dispose();
     error.dispose();
+    iconKey.dispose();
+    colorHex.dispose();
+  }
+
+  static String _hexOf(Color c) {
+    final v = c.toARGB32() & 0xFFFFFF;
+    return '#${v.toRadixString(16).padLeft(6, '0').toUpperCase()}';
   }
 }

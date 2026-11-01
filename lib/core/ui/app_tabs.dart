@@ -25,7 +25,7 @@ class AppTabs<T> extends StatelessWidget {
     final theme = Theme.of(context);
     final viz = VizColors.of(context);
     final index = tabs.indexWhere((t) => t.value == value).clamp(0, tabs.length - 1);
-    final height = compact ? 40.0 : 48.0;
+    final height = (compact ? 40.0 : 48.0) * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 1.6);
     final dur = Motion.reduced(context) ? Duration.zero : Motion.fast;
     return Semantics(
       container: true,

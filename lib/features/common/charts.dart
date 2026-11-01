@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../core/domain/money.dart';
+import '../../core/ui/motion.dart';
 
 /// Whether a chart card currently shows its table twin (per card id).
 final chartTableModeProvider = StateProvider.autoDispose.family<bool, String>((ref, id) => false);
@@ -56,7 +57,12 @@ class ChartCard extends ConsumerWidget {
             const SizedBox(height: Tokens.s12),
             if (legend != null && !showTable) ...[legend!, const SizedBox(height: Tokens.s12)],
             AnimatedSwitcher(
-              duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 150),
+              duration: Motion.reduced(context) ? Duration.zero : const Duration(milliseconds: 220),
+              switchInCurve: Motion.curve,
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: ScaleTransition(scale: Tween(begin: 0.98, end: 1.0).animate(anim), child: child),
+              ),
               child: KeyedSubtree(key: ValueKey(showTable), child: showTable ? table : RepaintBoundary(child: chart)),
             ),
           ] else ...[
@@ -135,10 +141,16 @@ class RankedBars extends StatelessWidget {
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Row(children: [
                 Expanded(child: Text(i.label, overflow: TextOverflow.ellipsis, style: theme.textTheme.bodyMedium)),
-                Text(
-                  showPercent ? '${formatMoney(i.amount)} · ${percentOf(i.amount, total)}%' : formatMoney(i.amount),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                      color: viz.inkSecondary, fontFeatures: moneyFeatures),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      showPercent ? '${formatMoney(i.amount)} · ${percentOf(i.amount, total)}%' : formatMoney(i.amount),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                          color: viz.inkSecondary, fontFeatures: moneyFeatures),
+                    ),
+                  ),
                 ),
               ]),
               const SizedBox(height: 6),
@@ -146,12 +158,17 @@ class RankedBars extends StatelessWidget {
                 final w = maxV == 0 ? 0.0 : box.maxWidth * (i.amount / maxV);
                 return Stack(children: [
                   Container(height: 8, decoration: BoxDecoration(color: viz.grid, borderRadius: BorderRadius.circular(4))),
-                  Container(
-                    height: 8,
-                    width: math.max(w, i.amount > 0 ? 4 : 0),
-                    decoration: BoxDecoration(
-                      color: i.muted ? viz.inkMuted : viz.categorical[0],
-                      borderRadius: BorderRadius.circular(4),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(end: math.max(w, i.amount > 0 ? 4 : 0).toDouble()),
+                    duration: growDuration(context),
+                    curve: Motion.curve,
+                    builder: (_, width, _) => Container(
+                      height: 8,
+                      width: width,
+                      decoration: BoxDecoration(
+                        color: i.muted ? viz.inkMuted : viz.categorical[0],
+                        borderRadius: BorderRadius.circular(4),
+                      ),
                     ),
                   ),
                 ]);
@@ -214,7 +231,11 @@ class DailyBars extends StatelessWidget {
     final maxV = values.fold<int>(0, (m, v) => math.max(m, v));
     final top = maxV == 0 ? 100.0 : maxV / 100 * 1.25;
     final color = viz.categorical[0];
-    return SizedBox(
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: Motion.reduced(context) ? Duration.zero : Motion.slow + Motion.stagger * values.length,
+      curve: Curves.linear,
+      builder: (context, grow, _) => SizedBox(
       height: height + 24, // plot + x-axis band, so labels never clip
       child: BarChart(
         BarChartData(
@@ -279,7 +300,7 @@ class DailyBars extends StatelessWidget {
                 showingTooltipIndicators: const [],
                 barRods: [
                   BarChartRodData(
-                    toY: values[i] / 100,
+                    toY: values[i] / 100 * _barGrow(grow, i, values.length),
                     width: 18,
                     color: i == focusIndex ? color : color.withValues(alpha: 0.42),
                     borderRadius: const BorderRadius.vertical(top: Radius.circular(4)),
@@ -289,9 +310,17 @@ class DailyBars extends StatelessWidget {
           ],
           extraLinesData: const ExtraLinesData(),
         ),
-        duration: MediaQuery.of(context).disableAnimations ? Duration.zero : const Duration(milliseconds: 200),
+        duration: Motion.reduced(context) || grow < 1 ? Duration.zero : Motion.emphasized,
+        curve: Motion.curve,
+      ),
       ),
     );
+  }
+
+  /// Staggered 0..1 growth for bar [i] of [n] given overall progress [t].
+  static double _barGrow(double t, int i, int n) {
+    final span = n + 2;
+    return Motion.curve.transform(((t * span - i) / 2).clamp(0.0, 1.0));
   }
 
   /// Text twin: label + value.

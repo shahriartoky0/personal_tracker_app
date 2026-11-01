@@ -13,8 +13,8 @@ import '../../core/domain/money.dart';
 import '../../core/domain/reports.dart';
 import '../../core/domain/transfer_tracker.dart';
 import '../common/widgets.dart';
-import '../transactions/add_sheet.dart';
-import '../transactions/application/add_form.dart';
+import '../common/entry/add_sheet.dart';
+import '../common/entry/add_form.dart';
 import 'proof_viewer.dart';
 import '../../core/error/ui_guard.dart';
 
@@ -58,7 +58,7 @@ class PeopleScreen extends ConsumerWidget {
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/taka-people-transfers.csv');
     await file.writeAsString('${TransactionCsv.bom}$csv');
-    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'Taka Tracker people transfers'));
+    await SharePlus.instance.share(ShareParams(files: [XFile(file.path)], text: 'SpendWise people transfers'));
   }
 
   @override
@@ -111,20 +111,24 @@ class PeopleScreen extends ConsumerWidget {
         DropdownButtonFormField<String?>(
           initialValue: f.personId,
           decoration: const InputDecoration(labelText: 'Person'),
+          isExpanded: true,
           items: [
             const DropdownMenuItem<String?>(value: null, child: Text('Everyone')),
-            for (final p in payees) DropdownMenuItem<String?>(value: p.id, child: Text(p.name)),
+            for (final p in payees)
+              DropdownMenuItem<String?>(value: p.id, child: Text(p.name, overflow: TextOverflow.ellipsis)),
           ],
           onChanged: n.setPerson,
         ),
         const SizedBox(height: 12),
-        GridView.count(
-          crossAxisCount: 2,
+        GridView(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 2.2,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            mainAxisExtent: 76 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
+          ),
           children: [
             _stat(context, 'Sent', formatMoney(t.sent)),
             _stat(context, 'Received', formatMoney(t.received)),
@@ -147,8 +151,14 @@ class PeopleScreen extends ConsumerWidget {
                   'This period: sent ${formatMoney(pt.sent)} · received ${formatMoney(pt.received)}\n'
                   'All time: sent ${formatMoney(allTime[pt.payeeId]?.sent ?? 0)} · received ${formatMoney(allTime[pt.payeeId]?.received ?? 0)}',
                 ),
-                isThreeLine: true,
-                trailing: Text(formatMoney(pt.netSent), style: moneyStyleOf(context)),
+                trailing: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 110),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text(formatMoney(pt.netSent), style: moneyStyleOf(context)),
+                  ),
+                ),
               ),
             ),
         const SizedBox(height: 16),
@@ -173,9 +183,16 @@ class PeopleScreen extends ConsumerWidget {
               ]),
               subtitle: Text(formatDateTimeLocal(tx.occurredAtMs, tz) +
                   ((tx.note ?? '').isEmpty ? '' : ' · ${tx.note}')),
-              trailing: Text(
-                formatMoney(tx.direction == TransferDirection.outbound ? -tx.amount : tx.amount, showSign: true),
-                style: moneyStyleOf(context),
+              trailing: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 110),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    formatMoney(tx.direction == TransferDirection.outbound ? -tx.amount : tx.amount, showSign: true),
+                    style: moneyStyleOf(context),
+                  ),
+                ),
               ),
               onTap: () => _actions(context, ref, tx),
             ),
@@ -193,7 +210,11 @@ class PeopleScreen extends ConsumerWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
             Text(label, style: Theme.of(context).textTheme.labelMedium),
             const SizedBox(height: 2),
-            Text(value, style: moneyStyleOf(context)),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(value, style: moneyStyleOf(context)),
+            ),
           ]),
         ),
       );

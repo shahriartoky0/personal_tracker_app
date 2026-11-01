@@ -36,7 +36,7 @@ class PlanScreen extends ConsumerWidget {
     );
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Tokens.s16, Tokens.s8, Tokens.s16, 96),
+      padding: const EdgeInsets.fromLTRB(Tokens.s16, Tokens.s8, Tokens.s16, Tokens.s24),
       children: [
         Row(children: [
           IconButton(tooltip: 'Previous day', onPressed: () => c.shiftDay(-1), icon: const Icon(Icons.chevron_left)),
@@ -188,7 +188,12 @@ class PlanScreen extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         child: Row(children: [
           Expanded(child: Text(k)),
-          Text(v, style: moneyStyle(context, weight: bold ? FontWeight.w700 : FontWeight.w500)),
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(v, style: moneyStyle(context, weight: bold ? FontWeight.w700 : FontWeight.w500)),
+            ),
+          ),
         ]),
       );
 
@@ -201,7 +206,7 @@ class PlanScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Planned expense'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
+        content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
           TextField(controller: title, decoration: const InputDecoration(labelText: 'Title')),
           const SizedBox(height: 8),
           TextField(
@@ -214,12 +219,16 @@ class PlanScreen extends ConsumerWidget {
             valueListenable: cat,
             builder: (_, value, _) => DropdownButtonFormField<String>(
               initialValue: value,
-              items: [for (final x in cats) DropdownMenuItem(value: x.id, child: Text(x.name))],
+              isExpanded: true,
+              items: [
+                for (final x in cats)
+                  DropdownMenuItem(value: x.id, child: Text(x.name, overflow: TextOverflow.ellipsis)),
+              ],
               onChanged: (v) => cat.value = v,
               decoration: const InputDecoration(labelText: 'Category'),
             ),
           ),
-        ]),
+        ])),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           FilledButton(

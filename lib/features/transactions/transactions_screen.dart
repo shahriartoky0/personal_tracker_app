@@ -12,9 +12,11 @@ import '../../core/ui/async_value_view.dart';
 import '../../core/ui/skeleton.dart';
 import '../common/widgets.dart';
 import '../transfers/proof_viewer.dart';
-import 'add_sheet.dart';
+import '../common/entry/add_sheet.dart';
 import 'application/transaction_filter.dart';
 import '../../core/error/ui_guard.dart';
+import '../../app/refresh_actions.dart';
+import '../../core/ui/pull_refresh.dart';
 
 /// Transactions: search + filters over the local database (works offline).
 class TransactionsScreen extends ConsumerWidget {
@@ -23,43 +25,46 @@ class TransactionsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final grouped = ref.watch(groupedTransactionsProvider);
-    final hasAny = ref.watch(visibleTransactionsProvider.select((a) => a.valueOrNull?.isNotEmpty ?? false));
+    final hasAny = ref.watch(
+      visibleTransactionsProvider.select(
+        (a) => a.valueOrNull?.isNotEmpty ?? false,
+      ),
+    );
     final filterActive = ref.watch(txFilterProvider.select((f) => f.isActive));
 
-    return Column(children: [
-      const _SearchField(),
-      const _FilterRow(),
-      Expanded(
-        child: AsyncValueView<List<DayGroup>>(
-          value: grouped,
-          loading: const SkeletonTxList(),
-          onRetry: () => ref.invalidate(visibleTransactionsProvider),
-          data: (groups) {
-            if (groups.isEmpty) {
-              return hasAny || filterActive
-                  ? EmptyState(
-                      'Try a different search or clear the filters.',
-                      title: 'No matches',
-                      icon: Icons.search_off,
-                      actionLabel: 'Clear filters',
-                      onAction: ref.read(txFilterProvider.notifier).clear,
-                    )
-                  : EmptyState(
-                      'Tap Add to record your first expense or income. Everything is saved on your phone, even offline.',
-                      title: 'No transactions yet',
-                      icon: Icons.receipt_long_outlined,
-                      actionLabel: 'Add a transaction',
-                      onAction: () => showAddSheet(context),
-                    );
-            }
-            return RefreshIndicator(
-              onRefresh: ref.read(syncEngineProvider).syncNow,
-              child: _GroupedList(groups: groups),
-            );
-          },
+    return Column(
+      children: [
+        const _SearchField(),
+        const _FilterRow(),
+        Expanded(
+          child: AsyncValueView<List<DayGroup>>(
+            value: grouped,
+            loading: const SkeletonTxList(),
+            onRetry: () => ref.invalidate(visibleTransactionsProvider),
+            data: (groups) {
+              if (groups.isEmpty) {
+                return hasAny || filterActive
+                    ? EmptyState(
+                        'Try a different search or clear the filters.',
+                        title: 'No matches',
+                        icon: Icons.search_off,
+                        actionLabel: 'Clear filters',
+                        onAction: ref.read(txFilterProvider.notifier).clear,
+                      )
+                    : EmptyState(
+                        'Tap Add to record your first expense or income. Everything is saved on your phone, even offline.',
+                        title: 'No transactions yet',
+                        icon: Icons.receipt_long_outlined,
+                        actionLabel: 'Add a transaction',
+                        onAction: () => showAddSheet(context),
+                      );
+              }
+              return _GroupedList(groups: groups);
+            },
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -111,7 +116,10 @@ class _SearchFieldState extends ConsumerState<_SearchField> {
         ),
         onChanged: (v) {
           _debounce?.cancel();
-          _debounce = Timer(const Duration(milliseconds: 250), () => ref.read(txFilterProvider.notifier).setQuery(v));
+          _debounce = Timer(
+            const Duration(milliseconds: 250),
+            () => ref.read(txFilterProvider.notifier).setQuery(v),
+          );
         },
       ),
     );
@@ -125,17 +133,29 @@ class _FilterRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final f = ref.watch(txFilterProvider);
     final n = ref.read(txFilterProvider.notifier);
-    final cats = ref.watch(allCategoriesProvider).valueOrNull ?? const <Category>[];
-    final accs = ref.watch(allAccountsProvider).valueOrNull ?? const <Account>[];
+    final cats =
+        ref.watch(allCategoriesProvider).valueOrNull ?? const <Category>[];
+    final accs =
+        ref.watch(allAccountsProvider).valueOrNull ?? const <Account>[];
 
     return SizedBox(
-      height: 56,
+      height: 56 * MediaQuery.textScalerOf(context).scale(1).clamp(1.0, 2.0),
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
         children: [
-          _Menu(label: 'Category', value: f.categoryId, options: {for (final c in cats) c.id: c.name}, onChanged: n.setCategory),
-          _Menu(label: 'Account', value: f.accountId, options: {for (final a in accs) a.id: a.name}, onChanged: n.setAccount),
+          _Menu(
+            label: 'Category',
+            value: f.categoryId,
+            options: {for (final c in cats) c.id: c.name},
+            onChanged: n.setCategory,
+          ),
+          _Menu(
+            label: 'Account',
+            value: f.accountId,
+            options: {for (final a in accs) a.id: a.name},
+            onChanged: n.setAccount,
+          ),
           _Menu(
             label: 'Planned',
             value: f.planned,
@@ -146,7 +166,9 @@ class _FilterRow extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: InputChip(
               avatar: const Icon(Icons.date_range, size: 18),
-              label: Text(f.range == null ? 'Dates' : '${f.range!.from} → ${f.range!.to}'),
+              label: Text(
+                f.range == null ? 'Dates' : '${f.range!.from} → ${f.range!.to}',
+              ),
               selected: f.range != null,
               onPressed: () async {
                 final r = await showDateRangePicker(
@@ -156,15 +178,25 @@ class _FilterRow extends ConsumerWidget {
                   initialDateRange: f.range == null
                       ? null
                       : DateTimeRange(
-                          start: DateTime(f.range!.from.year, f.range!.from.month, f.range!.from.day),
-                          end: DateTime(f.range!.to.year, f.range!.to.month, f.range!.to.day),
+                          start: DateTime(
+                            f.range!.from.year,
+                            f.range!.from.month,
+                            f.range!.from.day,
+                          ),
+                          end: DateTime(
+                            f.range!.to.year,
+                            f.range!.to.month,
+                            f.range!.to.day,
+                          ),
                         ),
                 );
                 if (r != null) {
-                  n.setRange(DateRange(
-                    LocalDate(r.start.year, r.start.month, r.start.day),
-                    LocalDate(r.end.year, r.end.month, r.end.day),
-                  ));
+                  n.setRange(
+                    DateRange(
+                      LocalDate(r.start.year, r.start.month, r.start.day),
+                      LocalDate(r.end.year, r.end.month, r.end.day),
+                    ),
+                  );
                 }
               },
               onDeleted: f.range == null ? null : () => n.setRange(null),
@@ -177,7 +209,12 @@ class _FilterRow extends ConsumerWidget {
 }
 
 class _Menu extends StatelessWidget {
-  const _Menu({required this.label, required this.value, required this.options, required this.onChanged});
+  const _Menu({
+    required this.label,
+    required this.value,
+    required this.options,
+    required this.onChanged,
+  });
   final String label;
   final String? value;
   final Map<String, String> options;
@@ -192,14 +229,20 @@ class _Menu extends StatelessWidget {
         tooltip: 'Filter by ${label.toLowerCase()}',
         onSelected: onChanged,
         itemBuilder: (_) => [
-          PopupMenuItem<String?>(value: null, child: Text('All ${label.toLowerCase()}s')),
-          for (final e in options.entries) PopupMenuItem<String?>(value: e.key, child: Text(e.value)),
+          PopupMenuItem<String?>(
+            value: null,
+            child: Text('All ${label.toLowerCase()}s'),
+          ),
+          for (final e in options.entries)
+            PopupMenuItem<String?>(value: e.key, child: Text(e.value)),
         ],
         child: Chip(
           label: Text(value == null ? label : (options[value] ?? label)),
           deleteIcon: const Icon(Icons.arrow_drop_down, size: 18),
           onDeleted: null,
-          backgroundColor: value == null ? null : theme.colorScheme.primaryContainer,
+          backgroundColor: value == null
+              ? null
+              : theme.colorScheme.primaryContainer,
         ),
       ),
     );
@@ -215,9 +258,21 @@ class _GroupedList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tz = ref.watch(timezoneProvider);
     final today = todayIn(tz);
-    final catMap = ref.watch(allCategoriesProvider.select((a) => {for (final c in a.valueOrNull ?? const <Category>[]) c.id: c}));
-    final accMap = ref.watch(allAccountsProvider.select((a) => {for (final x in a.valueOrNull ?? const <Account>[]) x.id: x}));
-    final payeeNames = ref.watch(payeesProvider.select((a) => {for (final p in a.valueOrNull ?? const <Payee>[]) p.id: p.name}));
+    final catMap = ref.watch(
+      allCategoriesProvider.select(
+        (a) => {for (final c in a.valueOrNull ?? const <Category>[]) c.id: c},
+      ),
+    );
+    final accMap = ref.watch(
+      allAccountsProvider.select(
+        (a) => {for (final x in a.valueOrNull ?? const <Account>[]) x.id: x},
+      ),
+    );
+    final payeeNames = ref.watch(
+      payeesProvider.select(
+        (a) => {for (final p in a.valueOrNull ?? const <Payee>[]) p.id: p.name},
+      ),
+    );
     final theme = Theme.of(context);
     final hasMore = ref.watch(txHasMoreProvider);
 
@@ -228,9 +283,9 @@ class _GroupedList extends ConsumerWidget {
       entries.addAll(g.items);
     }
 
-    return ListView.builder(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 96),
+    return RefreshableList.builder(
+      onRefresh: () => refreshAndNotify(ref, context),
+      padding: const EdgeInsets.only(bottom: 24),
       itemCount: entries.length + (hasMore ? 1 : 0),
       itemBuilder: (context, i) {
         if (i == entries.length) {
@@ -249,19 +304,29 @@ class _GroupedList extends ConsumerWidget {
         if (e is DayGroup) {
           return Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Row(children: [
-              Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(friendlyDay(e.day, today),
-                      style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    header: true,
+                    child: Text(
+                      friendlyDay(e.day, today),
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-              if (e.spent > 0)
-                Text('Spent ${formatMoney(e.spent)}',
-                    style: theme.textTheme.labelMedium
-                        ?.copyWith(color: theme.colorScheme.onSurfaceVariant, fontFeatures: moneyFeatures)),
-            ]),
+                if (e.spent > 0)
+                  Text(
+                    'Spent ${formatMoney(e.spent)}',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontFeatures: moneyFeatures,
+                    ),
+                  ),
+              ],
+            ),
           );
         }
         final t = e as Tx;
@@ -282,59 +347,86 @@ class _GroupedList extends ConsumerWidget {
 
 Future<void> _showActions(BuildContext context, WidgetRef ref, Tx t) async {
   final repo = ref.read(ledgerProvider);
-  final isTransfer = t.type == TxType.transfer || t.type == TxType.personTransfer;
+  final isTransfer =
+      t.type == TxType.transfer || t.type == TxType.personTransfer;
   await showModalBottomSheet<void>(
     context: context,
     showDragHandle: true,
     builder: (ctx) => SafeArea(
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        if (t.receiptPath != null)
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (t.receiptPath != null)
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('View proof'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showProofViewer(context, ref, t);
+              },
+            ),
+          if (t.type != TxType.transfer)
+            ListTile(
+              leading: const Icon(Icons.edit_outlined),
+              title: const Text('Edit'),
+              onTap: () {
+                Navigator.pop(ctx);
+                showAddSheet(context, editing: t);
+              },
+            ),
+          if (!isTransfer)
+            ListTile(
+              leading: const Icon(Icons.copy_outlined),
+              title: const Text('Duplicate'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await runGuarded(
+                  context,
+                  () => repo.duplicateTransaction(t.id),
+                  success: 'Duplicated',
+                );
+              },
+            ),
           ListTile(
-            leading: const Icon(Icons.receipt_long_outlined),
-            title: const Text('View proof'),
-            onTap: () {
-              Navigator.pop(ctx);
-              showProofViewer(context, ref, t);
-            },
-          ),
-        if (t.type != TxType.transfer)
-          ListTile(
-            leading: const Icon(Icons.edit_outlined),
-            title: const Text('Edit'),
-            onTap: () {
-              Navigator.pop(ctx);
-              showAddSheet(context, editing: t);
-            },
-          ),
-        if (!isTransfer)
-          ListTile(
-            leading: const Icon(Icons.copy_outlined),
-            title: const Text('Duplicate'),
+            leading: Icon(
+              Icons.delete_outline,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            title: Text(
+              t.type == TxType.transfer
+                  ? 'Delete transfer (both legs)'
+                  : 'Delete',
+            ),
             onTap: () async {
               Navigator.pop(ctx);
-              await runGuarded(context, () => repo.duplicateTransaction(t.id), success: 'Duplicated');
+              final ok = await showDialog<bool>(
+                context: context,
+                builder: (d) => AlertDialog(
+                  title: const Text('Delete this transaction?'),
+                  content: const Text('This cannot be undone.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(d, false),
+                      child: const Text('Cancel'),
+                    ),
+                    FilledButton(
+                      onPressed: () => Navigator.pop(d, true),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              );
+              if (ok == true && context.mounted) {
+                await runGuarded(
+                  context,
+                  () => repo.deleteTransaction(t.id),
+                  success: 'Deleted',
+                );
+              }
             },
           ),
-        ListTile(
-          leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
-          title: Text(t.type == TxType.transfer ? 'Delete transfer (both legs)' : 'Delete'),
-          onTap: () async {
-            Navigator.pop(ctx);
-            final ok = await showDialog<bool>(
-              context: context,
-              builder: (d) => AlertDialog(
-                title: const Text('Delete this transaction?'),
-                content: const Text('This cannot be undone.'),
-                actions: [
-                  TextButton(onPressed: () => Navigator.pop(d, false), child: const Text('Cancel')),
-                  FilledButton(onPressed: () => Navigator.pop(d, true), child: const Text('Delete')),
-                ],
-              ),
-            );
-            if (ok == true && context.mounted) await runGuarded(context, () => repo.deleteTransaction(t.id), success: 'Deleted');
-          },
-        ),
-      ]),
+        ],
+      ),
     ),
   );
 }

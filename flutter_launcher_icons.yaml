@@ -1,0 +1,10 @@
+# Regenerate: dart run flutter_launcher_icons
+# Note: the committed icons were made from a padded, upscaled copy of the logo
+# (see docs/features/branding.md); running this straight from logo.png is close
+# but not identical.
+flutter_launcher_icons:
+  image_path: "assets/logo/logo.png"
+  android: "ic_launcher"
+  ios: true
+  remove_alpha_ios: true
+  background_color_ios: "#2B8FB8"

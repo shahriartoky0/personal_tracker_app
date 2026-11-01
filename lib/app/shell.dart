@@ -3,27 +3,80 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/data/sync/sync_status.dart';
+import '../core/platform/notification_service.dart';
+import '../core/ui/docked_nav_bar.dart';
+import '../core/ui/motion.dart';
+import '../core/ui/responsive.dart';
 import '../features/budgets/plan_screen.dart';
+import '../features/common/entry/add_sheet.dart';
 import '../features/reports/reports_screen.dart';
-import '../features/settings/settings_screen.dart';
-import '../features/transactions/add_sheet.dart';
+import '../features/settings/reminders_screen.dart';
 import '../features/transactions/dashboard_screen.dart';
 import '../features/transactions/transactions_screen.dart';
-import '../core/platform/notification_service.dart';
-import '../features/settings/reminders_screen.dart';
-import '../core/ui/responsive.dart';
 import 'providers.dart';
-import '../core/ui/motion.dart';
+import 'shell_controller.dart';
+
+const _titles = ['Today', 'Plan', 'Transactions', 'Reports'];
+
+const _destinations = [
+  NavDestinationData('Today', Icons.today_outlined, Icons.today_rounded),
+  NavDestinationData('Plan', Icons.event_note_outlined, Icons.event_note_rounded),
+  NavDestinationData('Transactions', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
+  NavDestinationData('Reports', Icons.insights_outlined, Icons.insights_rounded),
+];
+
+/// The four screens behind the bar. PageView.builder creates each page the
+/// first time it scrolls into view; [_KeepAlive] then holds it so scroll
+/// position and filters survive tab switches.
+const _pages = <Widget>[
+  DashboardScreen(),
+  PlanScreen(),
+  TransactionsScreen(),
+  ReportsScreen(),
+];
+
+/// Subtle parallax while swiping or animating between tabs: the page drifts
+/// a little, fades to 70% and shrinks to 97% as it leaves the centre.
+class _PageParallax extends StatelessWidget {
+  const _PageParallax({required this.controller, required this.index, required this.child});
+  final PageController controller;
+  final int index;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (Motion.reduced(context)) return child;
+    return AnimatedBuilder(
+      animation: controller,
+      child: child,
+      builder: (context, child) {
+        final page = controller.hasClients && controller.position.haveDimensions
+            ? (controller.page ?? index.toDouble())
+            : index.toDouble();
+        final delta = (index - page).clamp(-1.0, 1.0);
+        final d = delta.abs();
+        if (d == 0) return child!;
+        return Opacity(
+          opacity: 1 - 0.3 * d,
+          child: Transform.translate(
+            offset: Offset(delta * 24, 0),
+            child: Transform.scale(scale: 1 - 0.03 * d, child: child),
+          ),
+        );
+      },
+    );
+  }
+}
 
 class AppShell extends ConsumerWidget {
   const AppShell({super.key});
 
-  static const _titles = ['Today', 'Plan', 'Transactions', 'Reports', 'Settings'];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final tab = ref.watch(shellTabProvider.select((s) => s.index));
-    final visited = ref.watch(shellTabProvider.select((s) => s.visited));
+    final tab = ref.watch(shellTabProvider);
+    final controller = ref.read(shellTabProvider.notifier);
+    final needsAttention = ref.watch(syncStatusProvider.select((s) => s.valueOrNull is SyncAttention));
+
     ref.listen(reminderPrefsProvider, (_, n) {
       final prefs = n.valueOrNull;
       if (prefs != null) NotificationService.instance.reschedule(prefs, ref.read(timezoneProvider));
@@ -32,82 +85,118 @@ class AppShell extends ConsumerWidget {
       final prefs = ref.read(reminderPrefsProvider).valueOrNull;
       if (prefs != null) NotificationService.instance.reschedule(prefs, zone);
     });
-    // Built on first visit only (lazy), then kept alive by the IndexedStack.
-    const builders = <Widget>[
-      DashboardScreen(),
-      PlanScreen(),
-      TransactionsScreen(),
-      ReportsScreen(),
-      SettingsScreen(),
-    ];
-    final pages = [for (var i = 0; i < builders.length; i++) visited.contains(i) ? builders[i] : const SizedBox.shrink()];
-    final content = Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: Breakpoints.contentMaxWidth),
-        child: IndexedStack(index: tab, children: pages),
+
+    final pageView = PageView.builder(
+      controller: controller.pages,
+      onPageChanged: controller.onPageChanged,
+      itemCount: _pages.length,
+      itemBuilder: (_, i) => _KeepAlive(
+        child: _PageParallax(
+          controller: controller.pages,
+          index: i,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: Breakpoints.contentMaxWidth),
+              child: _pages[i],
+            ),
+          ),
+        ),
       ),
     );
-    void select(int i) => ref.read(shellTabProvider.notifier).select(i);
-    final fab = FloatingActionButton.extended(
-      onPressed: () => showAddSheet(context),
-      icon: const Icon(Icons.add),
-      label: const Text('Add'),
-    ).pop(context, index: 3);
+
     final appBar = AppBar(
-      title: Text(_titles[tab]),
-      actions: const [SyncChip(), SizedBox(width: 8)],
+      title: AnimatedSwitcher(
+        duration: Motion.reduced(context) ? Duration.zero : Motion.fast,
+        switchInCurve: Motion.curve,
+        transitionBuilder: (child, anim) => FadeTransition(
+          opacity: anim,
+          child: SlideTransition(
+            position: Tween(begin: const Offset(0, 0.25), end: Offset.zero).animate(anim),
+            child: child,
+          ),
+        ),
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.centerLeft,
+          children: [...previous, ?current],
+        ),
+        child: Text(_titles[tab], key: ValueKey(tab)),
+      ),
+      actions: [
+        const SyncChip(),
+        IconButton(
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings_outlined),
+          onPressed: () => context.push('/settings'),
+        ),
+        const SizedBox(width: 4),
+      ],
     );
 
-    // Phone: bottom navigation. Tablet: a navigation rail beside the content.
+    void add() => showAddSheet(context);
+
     return ResponsiveBuilder(
       phone: (_) => Scaffold(
         appBar: appBar,
-        body: content,
-        floatingActionButton: fab,
-        bottomNavigationBar: NavigationBar(
+        body: pageView,
+        floatingActionButton: DockedAddButton(onPressed: add),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+        bottomNavigationBar: DockedNavBar(
+          destinations: _destinations,
           selectedIndex: tab,
-          onDestinationSelected: select,
-          destinations: [
-            for (final d in _destinations)
-              NavigationDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: d.label),
-          ],
+          onSelected: controller.goTo,
+          badgeIndex: needsAttention ? 2 : null,
         ),
       ),
       tablet: (_) => Scaffold(
         appBar: appBar,
-        floatingActionButton: fab,
         body: Row(children: [
           NavigationRail(
             selectedIndex: tab,
-            onDestinationSelected: select,
+            onDestinationSelected: controller.goTo,
             labelType: NavigationRailLabelType.all,
+            leading: Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: FloatingActionButton(
+                tooltip: 'Add',
+                onPressed: add,
+                child: const Icon(Icons.add_rounded),
+              ),
+            ),
             destinations: [
               for (final d in _destinations)
-                NavigationRailDestination(icon: Icon(d.icon), selectedIcon: Icon(d.selectedIcon), label: Text(d.label)),
+                NavigationRailDestination(
+                  icon: Icon(d.icon),
+                  selectedIcon: Icon(d.selectedIcon),
+                  label: Text(d.label),
+                ),
             ],
           ),
           const VerticalDivider(width: 1),
-          Expanded(child: content),
+          Expanded(child: pageView),
         ]),
       ),
     );
   }
 }
 
-class _Dest {
-  const _Dest(this.label, this.icon, this.selectedIcon);
-  final String label;
-  final IconData icon;
-  final IconData selectedIcon;
+/// Keeps a PageView page alive once built.
+class _KeepAlive extends StatefulWidget {
+  const _KeepAlive({required this.child});
+  final Widget child;
+  @override
+  State<_KeepAlive> createState() => _KeepAliveState();
 }
 
-const _destinations = [
-  _Dest('Today', Icons.today_outlined, Icons.today),
-  _Dest('Plan', Icons.event_note_outlined, Icons.event_note),
-  _Dest('Transactions', Icons.receipt_long_outlined, Icons.receipt_long),
-  _Dest('Reports', Icons.bar_chart_outlined, Icons.bar_chart),
-  _Dest('Settings', Icons.settings_outlined, Icons.settings),
-];
+class _KeepAliveState extends State<_KeepAlive> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
+  }
+}
 
 /// Small status chip: offline / syncing / "3 pending" / needs attention.
 class SyncChip extends ConsumerWidget {

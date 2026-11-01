@@ -3,7 +3,7 @@
 This file is the contract for Claude Code in this repo. `AGENTS.md` is the short version for other tools.
 
 ## 1. Project at a glance
-- **Product:** Personal Expense Tracker — an offline-first personal finance app (accounts, transactions,
+- **Product:** SpendWise — an offline-first personal finance app (accounts, transactions,
   transfers, budgets/plan, reports) in BDT, with Supabase auth and sync.
 - **Stack:** Flutter, Riverpod, go_router, drift (local SQLite), Supabase.
 - **Where things live:** `lib/app` (wiring), `lib/core` (domain, data, error, ui), `lib/features/<f>`

@@ -103,19 +103,3 @@ final payeesProvider = StreamProvider<List<Payee>>((ref) => ref.watch(ledgerProv
 
 final proofServiceProvider = Provider<ProofService>((ref) => ProofService());
 
-/// Bottom-nav state: the selected tab plus which tabs have been opened, so
-/// tabs are built lazily (first visit) and then kept alive.
-class ShellTabState {
-  const ShellTabState(this.index, this.visited);
-  final int index;
-  final Set<int> visited;
-}
-
-class ShellTabNotifier extends Notifier<ShellTabState> {
-  @override
-  ShellTabState build() => const ShellTabState(0, {0});
-  void select(int i) => state = ShellTabState(i, {...state.visited, i});
-}
-
-/// Any screen can jump to another tab: `ref.read(shellTabProvider.notifier).select(2)`.
-final shellTabProvider = NotifierProvider<ShellTabNotifier, ShellTabState>(ShellTabNotifier.new);

@@ -1,0 +1,12 @@
+# Regenerate: dart run flutter_native_splash:create
+# Note: the committed splash used a padded copy of the logo (see
+# docs/features/branding.md); regenerating from logo.png is optional.
+flutter_native_splash:
+  color: "#F9F9F7"
+  image: assets/logo/logo.png
+  color_dark: "#0D0D0D"
+  image_dark: assets/logo/logo.png
+  android_12:
+    color: "#F9F9F7"
+    color_dark: "#0D0D0D"
+  fullscreen: false

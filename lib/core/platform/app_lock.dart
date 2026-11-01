@@ -106,7 +106,7 @@ class LockController extends Notifier<LockState> with WidgetsBindingObserver {
     if (_prompting || !state.locked) return;
     _prompting = true;
     try {
-      final ok = await _auth.authenticate(localizedReason: 'Unlock Taka Tracker', biometricOnly: false);
+      final ok = await _auth.authenticate(localizedReason: 'Unlock SpendWise', biometricOnly: false);
       if (ok) state = state.copyWith(locked: false);
     } catch (_) {
       // A device with no screen lock at all must never trap the user.
@@ -140,7 +140,7 @@ class LockGate extends ConsumerWidget {
                   ? Column(mainAxisSize: MainAxisSize.min, children: [
                       const Icon(Icons.lock_outline, size: 48).pop(context),
                       const SizedBox(height: 12),
-                      const Text('Taka Tracker is locked'),
+                      const Text('SpendWise is locked'),
                       const SizedBox(height: 16),
                       FilledButton(onPressed: ref.read(lockSettingsProvider.notifier).unlock, child: const Text('Unlock')),
                     ])

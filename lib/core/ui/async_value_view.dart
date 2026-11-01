@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../error/app_error.dart';
 import 'motion.dart';
+import 'empty_illustration.dart';
 
 /// Every stream/future-backed screen goes through this: loading shows the
 /// supplied skeleton, errors show a friendly message with Retry (which
@@ -47,7 +48,7 @@ class ErrorState extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const LottieView(LottieAsset.offline, size: 96, fallback: Icons.error_outline),
+          const EmptyIllustration(Icons.cloud_off_outlined, size: 88),
           const SizedBox(height: 12),
           Text(title, style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
           const SizedBox(height: 4),

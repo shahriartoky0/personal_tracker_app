@@ -1,4 +1,4 @@
-package com.example.personal_expense_tracker
+package com.shahriar.spendwise
 
 import io.flutter.embedding.android.FlutterFragmentActivity
 

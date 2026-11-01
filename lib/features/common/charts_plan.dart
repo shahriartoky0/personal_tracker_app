@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/theme.dart';
 import '../../core/domain/money.dart';
+import '../../core/ui/motion.dart';
 
 class PlanActualRow {
   const PlanActualRow(this.label, this.planned, this.actual);
@@ -38,9 +39,15 @@ class PlanVsActualBars extends StatelessWidget {
                     padding: const EdgeInsets.only(right: 4),
                     child: Icon(Icons.error_outline, size: 14, color: viz.bad),
                   ),
-                Text('${formatMoney(r.actual)} / ${formatMoney(r.planned)}',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                        color: r.actual > r.planned ? viz.bad : viz.inkSecondary, fontFeatures: moneyFeatures)),
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: Text('${formatMoney(r.actual)} / ${formatMoney(r.planned)}',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                            color: r.actual > r.planned ? viz.bad : viz.inkSecondary, fontFeatures: moneyFeatures)),
+                  ),
+                ),
               ]),
               const SizedBox(height: 6),
               LayoutBuilder(builder: (c, box) {
@@ -49,12 +56,17 @@ class PlanVsActualBars extends StatelessWidget {
                   height: 12,
                   child: Stack(alignment: Alignment.centerLeft, children: [
                     Container(height: 8, decoration: BoxDecoration(color: viz.grid, borderRadius: BorderRadius.circular(4))),
-                    Container(
-                      height: 8,
-                      width: math.max(x(r.actual), r.actual > 0 ? 4 : 0),
-                      decoration: BoxDecoration(
-                        color: r.actual > r.planned ? viz.bad : viz.categorical[0],
-                        borderRadius: BorderRadius.circular(4),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(end: math.max(x(r.actual), r.actual > 0 ? 4 : 0).toDouble()),
+                      duration: growDuration(context),
+                      curve: Motion.curve,
+                      builder: (_, width, _) => Container(
+                        height: 8,
+                        width: width,
+                        decoration: BoxDecoration(
+                          color: r.actual > r.planned ? viz.bad : viz.categorical[0],
+                          borderRadius: BorderRadius.circular(4),
+                        ),
                       ),
                     ),
                     Positioned(

@@ -3,7 +3,7 @@
 Short, tool-agnostic rules for AI agents (Cursor, Copilot, etc.). The full contract is `CLAUDE.md`.
 
 ## Project
-Personal Expense Tracker: offline-first Flutter app (Riverpod, go_router, drift, Supabase). Code in `lib/app`,
+SpendWise: offline-first Flutter app (Riverpod, go_router, drift, Supabase). Code in `lib/app`,
 `lib/core` (domain/data/error/ui) and `lib/features/<feature>`. Backend in `supabase/`.
 
 ## Before you change code

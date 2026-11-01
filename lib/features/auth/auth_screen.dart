@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/theme.dart';
 import '../../core/ui/motion.dart';
 import 'application/auth_controller.dart';
+import '../../core/ui/app_logo.dart';
 
 /// Email/password auth. Needs a connection (first sign-in only).
 class AuthScreen extends ConsumerWidget {
@@ -26,18 +27,12 @@ class AuthScreen extends ConsumerWidget {
               constraints: const BoxConstraints(maxWidth: 420),
               child: AutofillGroup(
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text('৳', style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary)),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: AppLogo(size: 72, shadow: true),
                   ).pop(context),
                   const SizedBox(height: Tokens.s16),
-                  Text('Taka Tracker', style: theme.textTheme.headlineMedium).enter(context),
+                  Text('SpendWise', style: theme.textTheme.headlineMedium).enter(context),
                   const SizedBox(height: 4),
                   AnimatedSwitcher(
                     duration: Motion.fast,

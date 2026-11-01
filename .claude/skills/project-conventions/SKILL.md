@@ -29,8 +29,10 @@ Flutter, `flutter_riverpod` (state/DI), `go_router`, `drift` (local SQLite, sour
 7. **Naming:** files `snake_case.dart`; one primary class per file; screens end in `_screen.dart`, sheets in `_sheet.dart`.
 8. **No secrets in code.** Config comes from `.env`; keep `.env.example` current.
 9. Run `flutter analyze` and `flutter test` before calling work done.
+10. **Category visuals** (icon + colour) go through `lib/core/ui/category_style.dart`; never hard-code per-screen category icons.
+11. **Motion** goes through `lib/core/ui/motion.dart` (`Motion.*`, `AnimatedMoney`, `Motion.reduced`); never animate scrolled-in list rows.
 
 ## Known-debt checklist (check, don't assume fixed)
-- [ ] `test/` is empty — money and sync paths lack tests.
+- [ ] `test/` is nearly empty — money and sync paths lack tests.
 - [ ] `.core_backup/` holds a removed template core; do not import from it.
 - [ ] README is still the Flutter template text.

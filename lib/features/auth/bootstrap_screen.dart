@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/ui/async_value_view.dart';
 import '../../core/ui/motion.dart';
 import 'application/bootstrap_controller.dart';
+import '../../core/ui/app_logo.dart';
 
 /// First sign-in on a device: full pull in dependency order, with progress.
 class BootstrapScreen extends ConsumerWidget {
@@ -27,7 +28,9 @@ class BootstrapScreen extends ConsumerWidget {
         child: Padding(
           padding: const EdgeInsets.all(32),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            const LottieView(LottieAsset.loading, size: 120),
+            const AppLogo(size: 80, shadow: true),
+            const SizedBox(height: 4),
+            const LottieView(LottieAsset.loading, size: 80),
             const SizedBox(height: 8),
             SizedBox(
               width: 240,
