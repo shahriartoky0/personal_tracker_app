@@ -1,0 +1,4 @@
+# Copy to .claude/identity.local (gitignored) and fill in.
+DEV_SLUG=yourname          # stable, lowercase; becomes the session folder name
+DEV_NAME="Your Name"
+DEV_EMAIL=you@example.com
