@@ -121,6 +121,14 @@ class DailyBudget {
   final List<Allocation> allocations;
 }
 
+/// The user's single reusable daily plan: a limit plus category amounts, with
+/// no date. Loading it into a day only fills the form.
+class BudgetTemplate {
+  const BudgetTemplate({required this.totalLimit, this.allocations = const {}});
+  final int totalLimit;
+  final Map<String, int> allocations; // categoryId -> planned (minor units)
+}
+
 class PlannedExpense {
   const PlannedExpense({
     required this.id,

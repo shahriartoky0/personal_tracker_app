@@ -164,6 +164,9 @@ class AppShell extends ConsumerWidget {
 
     void add() => showAddSheet(context);
 
+    // Hide the docked "+" and bar while typing: they would float over the keyboard.
+    final keyboardOpen = MediaQuery.viewInsetsOf(context).bottom > 0;
+
     // Back on another tab returns to Today; only Today can start an exit.
     bool canStartExit() {
       if (tab == 0) return true;
@@ -177,15 +180,19 @@ class AppShell extends ConsumerWidget {
         phone: (_) => Scaffold(
           appBar: appBar,
           body: pageView,
-          floatingActionButton: DockedAddButton(onPressed: add),
+          floatingActionButton: keyboardOpen
+              ? null
+              : DockedAddButton(onPressed: add),
           floatingActionButtonLocation:
               FloatingActionButtonLocation.centerDocked,
-          bottomNavigationBar: DockedNavBar(
-            destinations: _destinations,
-            selectedIndex: tab,
-            onSelected: controller.goTo,
-            badgeIndex: needsAttention ? 2 : null,
-          ),
+          bottomNavigationBar: keyboardOpen
+              ? null
+              : DockedNavBar(
+                  destinations: _destinations,
+                  selectedIndex: tab,
+                  onSelected: controller.goTo,
+                  badgeIndex: needsAttention ? 2 : null,
+                ),
         ),
         tablet: (_) => Scaffold(
           appBar: appBar,

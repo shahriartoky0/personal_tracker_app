@@ -114,6 +114,31 @@ class LedgerRepository {
         'planned_amount': r.plannedAmount,
         'original_amount': r.originalAmount,
       };
+  Map<String, dynamic> templateJson(BudgetTemplateRow r) => {
+        'id': r.id,
+        'user_id': userId(),
+        'total_limit': r.totalLimit,
+        'allocations': _decodeAllocations(r.allocationsJson)
+            .entries
+            .map((e) => {'category_id': e.key, 'amount': e.value})
+            .toList(),
+      };
+
+  /// `[{"category_id": "...", "amount": 1200}, ...]` -> map. Bad rows are skipped.
+  static Map<String, int> _decodeAllocations(String json) {
+    try {
+      final raw = jsonDecode(json);
+      if (raw is! List) return const {};
+      return {
+        for (final e in raw)
+          if (e is Map && e['category_id'] is String && e['amount'] is num)
+            e['category_id'] as String: (e['amount'] as num).toInt(),
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
   Map<String, dynamic> plannedJson(PlannedExpenseRow r) => {
         'id': r.id,
         'user_id': userId(),
@@ -721,6 +746,44 @@ class LedgerRepository {
         await (db.delete(db.budgetAllocations)..where((t) => t.id.equals(old.id))).go();
         await outbox.enqueueDelete('budget_allocations', old.id, neverSynced: old.remoteUpdatedAt == null);
       }
+    });
+    onLocalWrite();
+    return const Ok(null);
+  }
+
+  // ── Plan template (one per user) ────────────────────────────────────────
+  Stream<BudgetTemplate?> watchTemplate() => db.select(db.budgetTemplates).watch().map((l) {
+        if (l.isEmpty) return null;
+        final r = l.first;
+        return BudgetTemplate(totalLimit: r.totalLimit, allocations: _decodeAllocations(r.allocationsJson));
+      });
+
+  /// Saves (overwrites) the user's single template. Never touches any day's plan.
+  Future<Result<void>> saveTemplate({
+    required int totalLimit,
+    required Map<String, int> allocations, // categoryId -> planned
+  }) async {
+    if (totalLimit < 0) return Err(Failure.validation('Limit cannot be negative.'));
+    if (allocations.values.any((a) => a < 0)) return Err(Failure.validation('Allocations cannot be negative.'));
+    if (allocations.values.fold(0, (s, a) => s + a) > totalLimit) {
+      return Err(Failure.validation('Allocations exceed the daily limit.'));
+    }
+    final existing = await db.select(db.budgetTemplates).get();
+    final first = existing.isEmpty ? null : existing.first;
+    final row = BudgetTemplateRow(
+      id: first?.id ?? newId(),
+      remoteUpdatedAt: first?.remoteUpdatedAt,
+      pending: true,
+      totalLimit: totalLimit,
+      allocationsJson: jsonEncode([
+        for (final e in allocations.entries)
+          if (e.value > 0) {'category_id': e.key, 'amount': e.value},
+      ]),
+    );
+    await db.transaction(() async {
+      await db.into(db.budgetTemplates).insertOnConflictUpdate(row);
+      await outbox.enqueueUpsert('budget_templates', row.id, templateJson(row),
+          baseUpdatedAt: first?.remoteUpdatedAt);
     });
     onLocalWrite();
     return const Ok(null);

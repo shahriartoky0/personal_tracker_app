@@ -102,7 +102,7 @@ class DashboardScreen extends ConsumerWidget {
         Tokens.s16,
         Tokens.s8,
         Tokens.s16,
-        Tokens.s24,
+        Tokens.fabClearance,
       ),
       children: _stagger(context, [
         if (firstRun)

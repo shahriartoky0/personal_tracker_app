@@ -125,7 +125,7 @@ class _ReportBody extends ConsumerWidget {
     final accName = view.accountNames;
 
     return ListView(
-      padding: const EdgeInsets.fromLTRB(Tokens.s16, 0, Tokens.s16, Tokens.s24),
+      padding: const EdgeInsets.fromLTRB(Tokens.s16, 0, Tokens.s16, Tokens.fabClearance),
       children: [
         Text('${view.range.from} → ${view.range.to}',
             style: theme.textTheme.labelLarge?.copyWith(color: theme.colorScheme.onSurfaceVariant)),

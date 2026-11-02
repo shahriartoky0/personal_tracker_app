@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
+import '../../app/theme.dart';
 import '../../core/domain/entities.dart';
 import '../common/widgets.dart';
 import '../../core/error/ui_guard.dart';
@@ -60,7 +61,7 @@ class CategoriesScreen extends ConsumerWidget {
               }),
             )
           : ListView(
-              padding: const EdgeInsets.only(bottom: 88),
+              padding: const EdgeInsets.only(bottom: Tokens.fabClearance),
               children: [
                 for (final type in const ['expense', 'income']) ...[
                   Padding(

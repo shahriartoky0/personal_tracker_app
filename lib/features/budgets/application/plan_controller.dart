@@ -14,11 +14,15 @@ class PlanState {
   final String? error;
   final bool saving;
 
-  PlanState copyWith({Object? date = _keep, Object? error = _keep, bool? saving}) => PlanState(
-        date: identical(date, _keep) ? this.date : date as LocalDate?,
-        error: identical(error, _keep) ? this.error : error as String?,
-        saving: saving ?? this.saving,
-      );
+  PlanState copyWith({
+    Object? date = _keep,
+    Object? error = _keep,
+    bool? saving,
+  }) => PlanState(
+    date: identical(date, _keep) ? this.date : date as LocalDate?,
+    error: identical(error, _keep) ? this.error : error as String?,
+    saving: saving ?? this.saving,
+  );
 }
 
 const _keep = Object();
@@ -29,19 +33,25 @@ const _keep = Object();
 class PlanController extends AutoDisposeNotifier<PlanState> {
   final limit = TextEditingController();
   final _alloc = <String, TextEditingController>{};
-  final totals = ValueNotifier<({int limit, int allocated})>((limit: 0, allocated: 0));
+  final totals = ValueNotifier<({int limit, int allocated})>((
+    limit: 0,
+    allocated: 0,
+  ));
   String? _seedKey;
 
-  TextEditingController alloc(String categoryId) => _alloc.putIfAbsent(categoryId, () {
+  TextEditingController alloc(String categoryId) =>
+      _alloc.putIfAbsent(categoryId, () {
         final c = TextEditingController()..addListener(_recompute);
         return c;
       });
 
-  List<Category> get _expenseCats => (ref.read(categoriesProvider).valueOrNull ?? const <Category>[])
-      .where((c) => c.type == 'expense')
-      .toList();
+  List<Category> get _expenseCats =>
+      (ref.read(categoriesProvider).valueOrNull ?? const <Category>[])
+          .where((c) => c.type == 'expense')
+          .toList();
 
-  LocalDate get currentDate => state.date ?? todayIn(ref.read(timezoneProvider));
+  LocalDate get currentDate =>
+      state.date ?? todayIn(ref.read(timezoneProvider));
 
   @override
   PlanState build() {
@@ -60,6 +70,16 @@ class PlanController extends AutoDisposeNotifier<PlanState> {
     return const PlanState();
   }
 
+  /// Save plan needs something to save: a limit or at least one amount.
+  bool get canSavePlan =>
+      !state.saving && (totals.value.limit > 0 || totals.value.allocated > 0);
+
+  /// A template needs a positive limit and allocations within it.
+  bool get canSaveTemplate =>
+      !state.saving &&
+      totals.value.limit > 0 &&
+      totals.value.allocated <= totals.value.limit;
+
   void _recompute() {
     final l = parseMoney(limit.text.isEmpty ? '0' : limit.text) ?? 0;
     var a = 0;
@@ -72,10 +92,12 @@ class PlanController extends AutoDisposeNotifier<PlanState> {
 
   void _reseed() {
     final date = currentDate;
-    final budgets = ref.read(budgetsProvider).valueOrNull ?? const <DailyBudget>[];
+    final budgets =
+        ref.read(budgetsProvider).valueOrNull ?? const <DailyBudget>[];
     final b = budgets.where((x) => x.date == date.value).firstOrNull;
     final cats = _expenseCats;
-    final key = '${date.value}|${b?.id}|${b?.totalLimit}|${b?.allocations.length}|${cats.length}';
+    final key =
+        '${date.value}|${b?.id}|${b?.totalLimit}|${b?.allocations.length}|${cats.length}';
     if (key == _seedKey) return;
     _seedKey = key;
     limit.text = b == null ? '' : toDecimalString(b.totalLimit);
@@ -92,13 +114,13 @@ class PlanController extends AutoDisposeNotifier<PlanState> {
     _reseed();
   }
 
-  /// Validates and saves. Returns true when saved.
-  Future<bool> save() async {
-    if (state.saving) return false;
+  /// Parses and validates the form. On a problem, publishes the message and
+  /// returns null.
+  ({int limit, Map<String, int> allocs})? _readForm() {
     final l = parseMoney(limit.text.isEmpty ? '0' : limit.text);
     if (l == null) {
       state = state.copyWith(error: 'Enter a valid daily limit.');
-      return false;
+      return null;
     }
     final allocs = <String, int>{};
     for (final c in _expenseCats) {
@@ -107,24 +129,74 @@ class PlanController extends AutoDisposeNotifier<PlanState> {
       final v = parseMoney(t);
       if (v == null) {
         state = state.copyWith(error: 'Check the amount for ${c.name}.');
-        return false;
+        return null;
       }
       allocs[c.id] = v;
     }
     final msg = BudgetCalculator.validateAllocations(l, allocs.values);
     if (msg != null) {
       state = state.copyWith(error: msg);
-      return false;
+      return null;
     }
+    return (limit: l, allocs: allocs);
+  }
+
+  /// Validates and saves. Returns true when saved.
+  Future<bool> save() async {
+    if (state.saving) return false;
+    final form = _readForm();
+    if (form == null) return false;
     state = state.copyWith(saving: true, error: null);
-    final r = await guard(() => ref.read(ledgerProvider).savePlan(date: currentDate, totalLimit: l, allocations: allocs));
+    final r = await guard(
+      () => ref
+          .read(ledgerProvider)
+          .savePlan(
+            date: currentDate,
+            totalLimit: form.limit,
+            allocations: form.allocs,
+          ),
+    );
     state = state.copyWith(saving: false, error: r.failureOrNull?.message);
     if (r.isOk) _seedKey = null;
     return r.isOk;
   }
 
+  /// Saves the form as the user's single template (overwrites it). Does not
+  /// touch the day's saved plan.
+  Future<bool> saveAsTemplate() async {
+    if (state.saving) return false;
+    final form = _readForm();
+    if (form == null) return false;
+    state = state.copyWith(saving: true, error: null);
+    final r = await guard(
+      () => ref
+          .read(ledgerProvider)
+          .saveTemplate(totalLimit: form.limit, allocations: form.allocs),
+    );
+    state = state.copyWith(saving: false, error: r.failureOrNull?.message);
+    return r.isOk;
+  }
+
+  /// Fills the form from the template. Does not save: the user still presses
+  /// Save plan. Categories that no longer exist are ignored. Returns false
+  /// when there is no template.
+  bool useTemplate() {
+    final t = ref.read(budgetTemplateProvider).valueOrNull;
+    if (t == null) return false;
+    limit.text = toDecimalString(t.totalLimit);
+    for (final c in _expenseCats) {
+      final a = t.allocations[c.id];
+      alloc(c.id).text = a == null || a == 0 ? '' : toDecimalString(a);
+    }
+    state = state.copyWith(error: null);
+    _recompute();
+    return true;
+  }
+
   Future<String?> copyYesterday() async {
-    final r = await guard(() => ref.read(ledgerProvider).copyPreviousPlan(currentDate));
+    final r = await guard(
+      () => ref.read(ledgerProvider).copyPreviousPlan(currentDate),
+    );
     _seedKey = null;
     return r.failureOrNull?.message;
   }
@@ -133,4 +205,5 @@ class PlanController extends AutoDisposeNotifier<PlanState> {
       ref.read(ledgerProvider).setDayClosed(budgetId, closed);
 }
 
-final planControllerProvider = NotifierProvider.autoDispose<PlanController, PlanState>(PlanController.new);
+final planControllerProvider =
+    NotifierProvider.autoDispose<PlanController, PlanState>(PlanController.new);

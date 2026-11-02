@@ -10,8 +10,9 @@ asks for reduced motion (`Motion.reduced(context)`).
 | `sharedAxisPage` | routes in `lib/app/app.dart` | Short horizontal slide + fade for settings sub-pages |
 | `_PageParallax` | `lib/app/shell.dart` | Drift/fade/scale of tab pages while swiping |
 | App bar title switch | `shell.dart` | Fade + rise between tab titles |
-| Add button pulse | `docked_nav_bar.dart` | Calm 3 s loop: halo ring expands and fades, plus breathes 1.0 to 1.06, then rests; off when motion is reduced |
-| Nav tab change | `docked_nav_bar.dart` | Icon cross-fade (outline to filled) and the indicator line grows in; tabs never resize |
+| Add button pulse | `docked_nav_bar.dart` | Calm 3 s loop: ring expands and fades while the button breathes 1.0 to 1.05, then rests; off when motion is reduced |
+| Nav tab change | `docked_nav_bar.dart` | Liquid dip glides to the new tab (springy overshoot, stretches mid-travel); the icon cross-fades to filled, lifts and grows 10% |
+| Nav ambient loop | `docked_nav_bar.dart` | 3 s loop: the attention badge pings (the add button has its own pulse above); off when motion is reduced |
 | `DailyBars` grow | `features/common/charts.dart` | Staggered bar growth on first build, animated on data change |
 | Chart/table swap | `ChartCard` | Fade + 0.98 to 1 scale |
 | Progress colour | dashboard hero | Colour cross-fade as status changes |

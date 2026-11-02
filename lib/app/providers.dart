@@ -62,6 +62,8 @@ final allCategoriesProvider =
     StreamProvider<List<Category>>((ref) => ref.watch(ledgerProvider).watchCategories(includeArchived: true));
 final transactionsProvider = StreamProvider<List<Tx>>((ref) => ref.watch(ledgerProvider).watchTransactions());
 final budgetsProvider = StreamProvider<List<DailyBudget>>((ref) => ref.watch(ledgerProvider).watchBudgets());
+final budgetTemplateProvider =
+    StreamProvider<BudgetTemplate?>((ref) => ref.watch(ledgerProvider).watchTemplate());
 /// Account balances = opening balance + SQL-computed net movement.
 final accountNetProvider = StreamProvider<Map<String, int>>((ref) => ref.watch(ledgerProvider).watchAccountNet());
 

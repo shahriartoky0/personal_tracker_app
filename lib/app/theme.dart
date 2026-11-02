@@ -7,6 +7,9 @@ class Tokens {
   static const radiusSm = 8.0;
   static const s8 = 8.0, s12 = 12.0, s16 = 16.0, s20 = 20.0, s24 = 24.0;
 
+  /// Bottom padding for scrollables so the docked "+" button never covers the last item.
+  static const fabClearance = 88.0;
+
   // Status palette (fixed, never themed). Always paired with icon + label.
   static const statusGood = Color(0xFF0CA30C);
   static const statusCritical = Color(0xFFD03B3B);

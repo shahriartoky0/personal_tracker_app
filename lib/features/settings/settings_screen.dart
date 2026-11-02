@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../app/providers.dart';
+import '../../app/theme.dart';
 import '../../core/data/data_reset.dart';
 import '../../core/data/remote/remote_gateway.dart';
 import '../../core/platform/app_lock.dart';
@@ -19,6 +20,7 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).valueOrNull;
     return ListView(
+      padding: const EdgeInsets.only(bottom: Tokens.fabClearance),
       children: [
         const _BrandHeader(),
         const Divider(height: 1),

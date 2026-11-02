@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
+import '../../app/theme.dart';
 import '../../core/domain/entities.dart';
 import '../../core/domain/money.dart';
 import '../common/widgets.dart';
@@ -40,6 +41,7 @@ class AccountsScreen extends ConsumerWidget {
               onAction: () => _edit(context, ref),
             )
           : ListView(
+              padding: const EdgeInsets.only(bottom: Tokens.fabClearance),
               children: [
                 for (final a in accounts)
                   ListTile(

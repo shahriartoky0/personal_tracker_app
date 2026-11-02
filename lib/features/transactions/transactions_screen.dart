@@ -299,7 +299,7 @@ class _GroupedList extends ConsumerWidget {
 
     return RefreshableList.builder(
       onRefresh: () => refreshAndNotify(ref, context),
-      padding: const EdgeInsets.only(bottom: 24),
+      padding: const EdgeInsets.only(bottom: Tokens.fabClearance),
       itemCount: entries.length + (hasMore ? 1 : 0),
       itemBuilder: (context, i) {
         if (i == entries.length) {

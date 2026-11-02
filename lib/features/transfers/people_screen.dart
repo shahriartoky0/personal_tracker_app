@@ -7,6 +7,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../../app/providers.dart';
+import '../../app/theme.dart';
 import '../../core/domain/entities.dart';
 import '../../core/domain/local_date.dart';
 import '../../core/domain/money.dart';
@@ -196,7 +197,7 @@ class PeopleScreen extends ConsumerWidget {
               ),
               onTap: () => _actions(context, ref, tx),
             ),
-        const SizedBox(height: 88),
+        const SizedBox(height: Tokens.fabClearance),
       ]),
     );
   }

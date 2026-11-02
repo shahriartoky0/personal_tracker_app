@@ -4,10 +4,12 @@ import '../domain/entities.dart';
 
 /// Curated icon set. Keys are what gets stored in `Category.icon`.
 const Map<String, IconData> categoryIcons = {
-  'restaurant': Icons.restaurant,
-  'groceries': Icons.local_grocery_store,
-  'coffee': Icons.local_cafe,
+  'rickshaw': Icons.electric_rickshaw,
+  'cigarette': Icons.smoking_rooms,
   'transport': Icons.directions_bus,
+  'restaurant': Icons.restaurant,
+  'coffee': Icons.local_cafe,
+  'groceries': Icons.local_grocery_store,
   'car': Icons.directions_car,
   'fuel': Icons.local_gas_station,
   'bills': Icons.receipt_long,
@@ -53,7 +55,8 @@ const _keywords = <String, List<String>>{
   'restaurant': ['food', 'dining', 'restaurant', 'meal', 'lunch', 'dinner'],
   'groceries': ['grocer', 'market', 'bazar'],
   'coffee': ['coffee', 'tea', 'snack'],
-  'transport': ['transport', 'bus', 'rickshaw', 'commute', 'ride'],
+  'rickshaw': ['rickshaw', 'riksha', 'cng'],
+  'transport': ['transport', 'bus', 'commute', 'ride'],
   'car': ['car', 'taxi', 'uber', 'pathao'],
   'fuel': ['fuel', 'petrol', 'gas'],
   'bills': ['bill', 'utilit', 'rent'],
@@ -76,6 +79,7 @@ const _keywords = <String, List<String>>{
   'savings': ['saving'],
   'investment': ['invest', 'dividend', 'interest'],
   'bonus': ['bonus', 'reward'],
+  'cigarette': ['cig', 'smok', 'tobacco', 'vape'],
 };
 
 @immutable
