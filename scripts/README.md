@@ -27,7 +27,7 @@ Run from the project root in PowerShell:
    - `releases/spendwise-<version>.apk` (debug builds get a `-debug` suffix)
    - `releases/spendwise-latest.apk` (overwritten each run, stable link)
 5. Deletes every other `releases/spendwise-*.apk`, so only the current pubspec version is kept.
-6. Rewrites the download link and spec table (version, package, size, SHA-256, date, tooling, signing)
+6. Rewrites the download link and a one-line version/size note
    in the root `README.md` between the `<!-- APK:START -->` / `<!-- APK:END -->` markers (release builds
    only).
 7. Prints which files changed (`releases/`, `README.md`, and `pubspec.yaml` with `-Bump`) so you can

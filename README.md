@@ -6,20 +6,9 @@ Built with Flutter, Riverpod, go_router, drift (local SQLite) and Supabase (auth
 <!-- APK:START -->
 ## Download
 
-**[Download SpendWise v1.0.1 (APK)](https://github.com/shahriartoky0/personal_tracker_app/raw/main/releases/spendwise-latest.apk)**
+**[Download SpendWise v1.0.0 (APK)](https://github.com/shahriartoky0/personal_tracker_app/raw/main/releases/spendwise-latest.apk)**
 
-| Spec | Value |
-|------|-------|
-| Version | 1.0.1 (build 2) |
-| Package | `com.shahriar.spendwise` |
-| Platform | Android |
-| Size | 72.3 MB |
-| SHA-256 | `398879f653bca11a7af9f9671c254b31af4042fd52e11f0b6b182fb315fcc1d6` |
-| Released | 02 Nov 2026 |
-| Build | Release, Flutter 3.41.4 / Dart 3.11.1 |
-| Signing | Debug key (sideload only, not for the Play Store) |
-
-Older builds are not kept in `releases/`; this is always the latest version.
+Version 1.0.0 (build 1) - Android - 72.3 MB
 <!-- APK:END -->
 
 ## Development

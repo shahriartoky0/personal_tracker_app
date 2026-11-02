@@ -8,7 +8,7 @@
      (skip the whole build with -SkipBuild, skip only the clean with -NoClean, debug with -Debug)
   2. copy to releases/spendwise-<version>.apk and releases/spendwise-latest.apk
   3. delete every other releases/spendwise-*.apk so only the current pubspec version is released
-  4. refresh the download link + spec table in README.md (between the APK:START/APK:END markers)
+  4. refresh the download link in README.md (between the APK:START/APK:END markers)
 
   The script never stages, commits or pushes: git is left entirely to you. Each APK is a binary
   (~20-50 MB per version); GitHub rejects files > 100 MB.
@@ -101,20 +101,6 @@ $remote = (git remote get-url origin).Trim() -replace '\.git$', ''
 if (-not $Debug) {
   $name, $build = $version -split '\+', 2
   if (-not $build) { $build = '-' }
-  $sha = (Get-FileHash (Join-Path $dir 'spendwise-latest.apk') -Algorithm SHA256).Hash.ToLower()
-  $released = (Get-Date).ToString('dd MMM yyyy', [Globalization.CultureInfo]::InvariantCulture)
-
-  $gradle = Get-Content (Join-Path $root 'android/app/build.gradle.kts') -Raw
-  $pkg = if ($gradle -match 'applicationId\s*=\s*"([^"]+)"') { $Matches[1] } else { '-' }
-  $signing = if ($gradle -match 'signingConfigs\.getByName\("debug"\)') {
-    'Debug key (sideload only, not for the Play Store)'
-  } else { 'Release keystore' }
-
-  $tooling = 'Flutter'
-  try {
-    $fv = (flutter --version --machine | Out-String) | ConvertFrom-Json
-    $tooling = "Flutter $($fv.frameworkVersion) / Dart $(($fv.dartSdkVersion -split ' ')[0])"
-  } catch { Write-Host "Could not read Flutter version: $_" }
 
   $block = @"
 <!-- APK:START -->
@@ -122,18 +108,7 @@ if (-not $Debug) {
 
 **[Download SpendWise v$name (APK)]($remote/raw/$branch/releases/spendwise-latest.apk)**
 
-| Spec | Value |
-|------|-------|
-| Version | $name (build $build) |
-| Package | ``$pkg`` |
-| Platform | Android |
-| Size | $sizeMb MB |
-| SHA-256 | ``$sha`` |
-| Released | $released |
-| Build | Release, $tooling |
-| Signing | $signing |
-
-Older builds are not kept in ``releases/``; this is always the latest version.
+Version $name (build $build) - Android - $sizeMb MB
 <!-- APK:END -->
 "@
 
