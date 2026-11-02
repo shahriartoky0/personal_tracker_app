@@ -146,18 +146,21 @@ class _FilterRow extends ConsumerWidget {
         children: [
           _Menu(
             label: 'Category',
+            allLabel: 'All categories',
             value: f.categoryId,
             options: {for (final c in cats) c.id: c.name},
             onChanged: n.setCategory,
           ),
           _Menu(
             label: 'Account',
+            allLabel: 'All accounts',
             value: f.accountId,
             options: {for (final a in accs) a.id: a.name},
             onChanged: n.setAccount,
           ),
           _Menu(
             label: 'Planned',
+            allLabel: 'Planned & unplanned',
             value: f.planned,
             options: const {'planned': 'Planned', 'unplanned': 'Unplanned'},
             onChanged: n.setPlanned,
@@ -208,14 +211,18 @@ class _FilterRow extends ConsumerWidget {
   }
 }
 
+const _allKey = '__all__';
+
 class _Menu extends StatelessWidget {
   const _Menu({
     required this.label,
+    required this.allLabel,
     required this.value,
     required this.options,
     required this.onChanged,
   });
   final String label;
+  final String allLabel;
   final String? value;
   final Map<String, String> options;
   final ValueChanged<String?> onChanged;
@@ -225,16 +232,23 @@ class _Menu extends StatelessWidget {
     final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: PopupMenuButton<String?>(
+      // PopupMenuButton never calls onSelected for a null value (it is treated
+      // as "dismissed"), so "All" uses a sentinel mapped back to null.
+      child: PopupMenuButton<String>(
         tooltip: 'Filter by ${label.toLowerCase()}',
-        onSelected: onChanged,
+        onSelected: (v) => onChanged(v == _allKey ? null : v),
         itemBuilder: (_) => [
-          PopupMenuItem<String?>(
-            value: null,
-            child: Text('All ${label.toLowerCase()}s'),
+          CheckedPopupMenuItem<String>(
+            value: _allKey,
+            checked: value == null,
+            child: Text(allLabel),
           ),
           for (final e in options.entries)
-            PopupMenuItem<String?>(value: e.key, child: Text(e.value)),
+            CheckedPopupMenuItem<String>(
+              value: e.key,
+              checked: value == e.key,
+              child: Text(e.value),
+            ),
         ],
         child: Chip(
           label: Text(value == null ? label : (options[value] ?? label)),

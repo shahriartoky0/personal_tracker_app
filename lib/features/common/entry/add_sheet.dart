@@ -11,6 +11,7 @@ import '../../../app/providers.dart';
 import '../../../app/theme.dart';
 import '../../../core/domain/entities.dart';
 import '../../../core/ui/app_sheet.dart';
+import '../../../core/ui/app_success_dialog.dart';
 import '../../../core/ui/app_tabs.dart';
 import '../../../core/ui/category_style.dart';
 import '../../../core/ui/motion.dart';
@@ -63,10 +64,6 @@ class AddSheetContent extends ConsumerWidget {
     final c = ref.read(addFormProvider(args).notifier);
     final accountsAsync = ref.watch(accountsProvider);
 
-    if (s.saved) {
-      return _SavedView(onDone: () => Navigator.of(context).maybePop());
-    }
-
     final accounts = accountsAsync.valueOrNull;
     final noAccounts = accounts != null && accounts.isEmpty;
     final editing = args.editing != null;
@@ -118,8 +115,15 @@ class AddSheetContent extends ConsumerWidget {
               onPressed: s.saving
                   ? null
                   : () async {
+                      final sheetNav = Navigator.of(context);
+                      final root = Navigator.of(context, rootNavigator: true);
                       final ok = await c.submit();
-                      if (ok) HapticFeedback.mediumImpact();
+                      if (!ok) return;
+                      HapticFeedback.mediumImpact();
+                      sheetNav.pop();
+                      // Root navigator outlives the sheet, so its context is safe here.
+                      // ignore: use_build_context_synchronously
+                      showSuccessDialog(root.context);
                     },
               icon: s.saving
                   ? const SizedBox(
@@ -132,58 +136,6 @@ class AddSheetContent extends ConsumerWidget {
             ),
     );
   }
-}
-
-/// Success state: Lottie check, then the sheet closes itself.
-class _SavedView extends StatefulWidget {
-  const _SavedView({required this.onDone});
-  final VoidCallback onDone;
-  @override
-  State<_SavedView> createState() => _SavedViewState();
-}
-
-class _SavedViewState extends State<_SavedView> {
-  Timer? _t;
-  @override
-  void initState() {
-    super.initState();
-    _t = Timer(const Duration(milliseconds: 1100), widget.onDone);
-  }
-
-  @override
-  void dispose() {
-    _t?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 40),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _SuccessRing(
-          child: const LottieView(
-            LottieAsset.success,
-            size: 120,
-            fallback: Icons.check_circle,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Saved',
-          style: Theme.of(context).textTheme.titleMedium,
-        ).enter(context, index: 3),
-        const SizedBox(height: 4),
-        Text(
-          'Synced when you are online',
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ).enter(context, index: 5),
-      ],
-    ),
-  );
 }
 
 class _ModeTabs extends ConsumerWidget {
@@ -677,43 +629,6 @@ class _ProofSection extends ConsumerWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-/// Soft ring that expands and fades behind the success check.
-class _SuccessRing extends StatelessWidget {
-  const _SuccessRing({required this.child});
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (Motion.reduced(context)) return child;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: Motion.slow + Motion.fast,
-      curve: Motion.curve,
-      child: child,
-      builder: (_, t, child) => Stack(
-        alignment: Alignment.center,
-        children: [
-          Opacity(
-            opacity: (1 - t).clamp(0.0, 1.0) * 0.5,
-            child: Container(
-              width: 70 + 90 * t,
-              height: 70 + 90 * t,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Tokens.statusGood,
-                  width: 3 * (1 - t) + 0.5,
-                ),
-              ),
-            ),
-          ),
-          child!,
-        ],
-      ),
     );
   }
 }

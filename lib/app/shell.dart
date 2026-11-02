@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/data/sync/sync_status.dart';
 import '../core/platform/notification_service.dart';
+import '../core/ui/app_snackbar.dart';
 import '../core/ui/docked_nav_bar.dart';
 import '../core/ui/motion.dart';
 import '../core/ui/responsive.dart';
@@ -16,13 +18,25 @@ import '../features/transactions/transactions_screen.dart';
 import 'providers.dart';
 import 'shell_controller.dart';
 
-const _titles = ['Today', 'Plan', 'Transactions', 'Reports'];
+const _titles = ['Today', 'Plan', 'History', 'Reports'];
 
 const _destinations = [
   NavDestinationData('Today', Icons.today_outlined, Icons.today_rounded),
-  NavDestinationData('Plan', Icons.event_note_outlined, Icons.event_note_rounded),
-  NavDestinationData('Transactions', Icons.receipt_long_outlined, Icons.receipt_long_rounded),
-  NavDestinationData('Reports', Icons.insights_outlined, Icons.insights_rounded),
+  NavDestinationData(
+    'Plan',
+    Icons.event_note_outlined,
+    Icons.event_note_rounded,
+  ),
+  NavDestinationData(
+    'History',
+    Icons.receipt_long_outlined,
+    Icons.receipt_long_rounded,
+  ),
+  NavDestinationData(
+    'Reports',
+    Icons.insights_outlined,
+    Icons.insights_rounded,
+  ),
 ];
 
 /// The four screens behind the bar. PageView.builder creates each page the
@@ -38,7 +52,11 @@ const _pages = <Widget>[
 /// Subtle parallax while swiping or animating between tabs: the page drifts
 /// a little, fades to 70% and shrinks to 97% as it leaves the centre.
 class _PageParallax extends StatelessWidget {
-  const _PageParallax({required this.controller, required this.index, required this.child});
+  const _PageParallax({
+    required this.controller,
+    required this.index,
+    required this.child,
+  });
   final PageController controller;
   final int index;
   final Widget child;
@@ -75,11 +93,18 @@ class AppShell extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final tab = ref.watch(shellTabProvider);
     final controller = ref.read(shellTabProvider.notifier);
-    final needsAttention = ref.watch(syncStatusProvider.select((s) => s.valueOrNull is SyncAttention));
+    final needsAttention = ref.watch(
+      syncStatusProvider.select((s) => s.valueOrNull is SyncAttention),
+    );
 
     ref.listen(reminderPrefsProvider, (_, n) {
       final prefs = n.valueOrNull;
-      if (prefs != null) NotificationService.instance.reschedule(prefs, ref.read(timezoneProvider));
+      if (prefs != null) {
+        NotificationService.instance.reschedule(
+          prefs,
+          ref.read(timezoneProvider),
+        );
+      }
     });
     ref.listen(timezoneProvider, (_, zone) {
       final prefs = ref.read(reminderPrefsProvider).valueOrNull;
@@ -96,7 +121,9 @@ class AppShell extends ConsumerWidget {
           index: i,
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: Breakpoints.contentMaxWidth),
+              constraints: const BoxConstraints(
+                maxWidth: Breakpoints.contentMaxWidth,
+              ),
               child: _pages[i],
             ),
           ),
@@ -111,7 +138,10 @@ class AppShell extends ConsumerWidget {
         transitionBuilder: (child, anim) => FadeTransition(
           opacity: anim,
           child: SlideTransition(
-            position: Tween(begin: const Offset(0, 0.25), end: Offset.zero).animate(anim),
+            position: Tween(
+              begin: const Offset(0, 0.25),
+              end: Offset.zero,
+            ).animate(anim),
             child: child,
           ),
         ),
@@ -134,49 +164,99 @@ class AppShell extends ConsumerWidget {
 
     void add() => showAddSheet(context);
 
-    return ResponsiveBuilder(
-      phone: (_) => Scaffold(
-        appBar: appBar,
-        body: pageView,
-        floatingActionButton: DockedAddButton(onPressed: add),
-        floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-        bottomNavigationBar: DockedNavBar(
-          destinations: _destinations,
-          selectedIndex: tab,
-          onSelected: controller.goTo,
-          badgeIndex: needsAttention ? 2 : null,
-        ),
-      ),
-      tablet: (_) => Scaffold(
-        appBar: appBar,
-        body: Row(children: [
-          NavigationRail(
+    // Back on another tab returns to Today; only Today can start an exit.
+    bool canStartExit() {
+      if (tab == 0) return true;
+      controller.goTo(0);
+      return false;
+    }
+
+    return _DoubleBackToExit(
+      canStartExit: canStartExit,
+      child: ResponsiveBuilder(
+        phone: (_) => Scaffold(
+          appBar: appBar,
+          body: pageView,
+          floatingActionButton: DockedAddButton(onPressed: add),
+          floatingActionButtonLocation:
+              FloatingActionButtonLocation.centerDocked,
+          bottomNavigationBar: DockedNavBar(
+            destinations: _destinations,
             selectedIndex: tab,
-            onDestinationSelected: controller.goTo,
-            labelType: NavigationRailLabelType.all,
-            leading: Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: FloatingActionButton(
-                tooltip: 'Add',
-                onPressed: add,
-                child: const Icon(Icons.add_rounded),
-              ),
-            ),
-            destinations: [
-              for (final d in _destinations)
-                NavigationRailDestination(
-                  icon: Icon(d.icon),
-                  selectedIcon: Icon(d.selectedIcon),
-                  label: Text(d.label),
+            onSelected: controller.goTo,
+            badgeIndex: needsAttention ? 2 : null,
+          ),
+        ),
+        tablet: (_) => Scaffold(
+          appBar: appBar,
+          body: Row(
+            children: [
+              NavigationRail(
+                selectedIndex: tab,
+                onDestinationSelected: controller.goTo,
+                labelType: NavigationRailLabelType.all,
+                leading: Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: FloatingActionButton(
+                    tooltip: 'Add',
+                    onPressed: add,
+                    child: const Icon(Icons.add_rounded),
+                  ),
                 ),
+                destinations: [
+                  for (final d in _destinations)
+                    NavigationRailDestination(
+                      icon: Icon(d.icon),
+                      selectedIcon: Icon(d.selectedIcon),
+                      label: Text(d.label),
+                    ),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: pageView),
             ],
           ),
-          const VerticalDivider(width: 1),
-          Expanded(child: pageView),
-        ]),
+        ),
       ),
     );
   }
+}
+
+/// Swallows the system back gesture: the first press shows a hint, a second
+/// press within [_window] closes the app.
+class _DoubleBackToExit extends StatefulWidget {
+  const _DoubleBackToExit({required this.child, required this.canStartExit});
+  final Widget child;
+
+  /// Return false to consume the back press (e.g. after switching tabs).
+  final bool Function() canStartExit;
+
+  @override
+  State<_DoubleBackToExit> createState() => _DoubleBackToExitState();
+}
+
+class _DoubleBackToExitState extends State<_DoubleBackToExit> {
+  static const _window = Duration(seconds: 2);
+  DateTime? _lastBack;
+
+  void _onBack(bool didPop, Object? result) {
+    if (didPop || !widget.canStartExit()) return;
+    final now = DateTime.now();
+    final last = _lastBack;
+    if (last != null && now.difference(last) < _window) {
+      SystemNavigator.pop();
+      return;
+    }
+    _lastBack = now;
+    AppSnack.info(context, 'Press back again to exit');
+  }
+
+  @override
+  Widget build(BuildContext context) => PopScope(
+    canPop: false,
+    onPopInvokedWithResult: _onBack,
+    child: widget.child,
+  );
 }
 
 /// Keeps a PageView page alive once built.
@@ -187,7 +267,8 @@ class _KeepAlive extends StatefulWidget {
   State<_KeepAlive> createState() => _KeepAliveState();
 }
 
-class _KeepAliveState extends State<_KeepAlive> with AutomaticKeepAliveClientMixin {
+class _KeepAliveState extends State<_KeepAlive>
+    with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
 
@@ -204,17 +285,37 @@ class SyncChip extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(syncStatusProvider).valueOrNull ?? const SyncOffline();
+    final status =
+        ref.watch(syncStatusProvider).valueOrNull ?? const SyncOffline();
     final scheme = Theme.of(context).colorScheme;
     final (IconData icon, String label, Color color) = switch (status) {
-      SyncOffline(:final pending) => (Icons.cloud_off, pending > 0 ? 'Offline · $pending' : 'Offline', scheme.outline),
+      SyncOffline(:final pending) => (
+        Icons.cloud_off,
+        pending > 0 ? 'Offline · $pending' : 'Offline',
+        scheme.outline,
+      ),
       SyncIdle() => (Icons.cloud_done_outlined, 'Synced', scheme.primary),
-      SyncSyncing(:final done, :final total) =>
-        (Icons.sync, total > 0 ? 'Syncing $done/$total' : 'Syncing', scheme.primary),
-      SyncPending(:final count) => (Icons.cloud_upload_outlined, '$count pending', scheme.tertiary),
-      SyncAttention(:final failed) => (Icons.error_outline, '$failed need attention', scheme.error),
+      SyncSyncing(:final done, :final total) => (
+        Icons.sync,
+        total > 0 ? 'Syncing $done/$total' : 'Syncing',
+        scheme.primary,
+      ),
+      SyncPending(:final count) => (
+        Icons.cloud_upload_outlined,
+        '$count pending',
+        scheme.tertiary,
+      ),
+      SyncAttention(:final failed) => (
+        Icons.error_outline,
+        '$failed need attention',
+        scheme.error,
+      ),
       SyncAuthRequired() => (Icons.lock_outline, 'Sign in again', scheme.error),
-      SyncUpdateRequired() => (Icons.system_update, 'Update required', scheme.error),
+      SyncUpdateRequired() => (
+        Icons.system_update,
+        'Update required',
+        scheme.error,
+      ),
     };
     return Semantics(
       label: 'Sync status: $label',

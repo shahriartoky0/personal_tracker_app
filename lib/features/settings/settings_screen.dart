@@ -252,7 +252,18 @@ class _PrivacySection extends ConsumerWidget {
               }
               return;
             }
-            await ref.read(lockSettingsProvider.notifier).set(enabled: v);
+            final notifier = ref.read(lockSettingsProvider.notifier);
+            if (!v &&
+                !await notifier.authenticate('Confirm to turn off app lock')) {
+              if (context.mounted) {
+                AppSnack.error(
+                  context,
+                  'Authentication failed — app lock stays on.',
+                );
+              }
+              return;
+            }
+            await notifier.set(enabled: v);
           },
         ),
         if (lock.enabled)
@@ -343,20 +354,27 @@ class _BrandHeader extends ConsumerWidget {
     final version = ref.watch(packageInfoProvider).valueOrNull?.version;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-      child: Row(children: [
-        const AppLogo(size: 52, shadow: true),
-        const SizedBox(width: 14),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(AppLogo.name, style: theme.textTheme.titleLarge),
-            if (version != null)
-              Text(
-                'Version $version',
-                style: theme.textTheme.bodySmall?.copyWith(color: theme.colorScheme.onSurfaceVariant),
-              ),
-          ]),
-        ),
-      ]),
+      child: Row(
+        children: [
+          const AppLogo(size: 52, shadow: true),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(AppLogo.name, style: theme.textTheme.titleLarge),
+                if (version != null)
+                  Text(
+                    'Version $version',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

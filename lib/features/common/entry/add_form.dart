@@ -46,7 +46,6 @@ class AddFormState {
     this.errors = const {},
     this.formError,
     this.saving = false,
-    this.saved = false,
   });
 
   final AddMode mode;
@@ -61,7 +60,6 @@ class AddFormState {
   final Map<String, String> errors;
   final String? formError;
   final bool saving;
-  final bool saved;
 
   AddFormState copyWith({
     AddMode? mode,
@@ -76,7 +74,6 @@ class AddFormState {
     Map<String, String>? errors,
     Object? formError = _keep,
     bool? saving,
-    bool? saved,
   }) =>
       AddFormState(
         mode: mode ?? this.mode,
@@ -91,7 +88,6 @@ class AddFormState {
         errors: errors ?? this.errors,
         formError: identical(formError, _keep) ? this.formError : formError as String?,
         saving: saving ?? this.saving,
-        saved: saved ?? this.saved,
       );
 }
 
@@ -122,7 +118,7 @@ class AddFormController extends AutoDisposeFamilyNotifier<AddFormState, AddArgs>
     });
 
     final e = arg.editing;
-    if (e == null) return AddFormState(mode: arg.initialMode ?? AddMode.expense);
+    if (e == null) return AddFormState(mode: arg.initialMode ?? AddMode.expense, planned: true);
 
     amount.text = toDecimalString(e.amount);
     note.text = e.note ?? '';
@@ -246,7 +242,7 @@ class AddFormController extends AutoDisposeFamilyNotifier<AddFormState, AddArgs>
       );
       return false;
     }
-    state = state.copyWith(saving: false, saved: true);
+    state = state.copyWith(saving: false);
     return true;
   }
 }

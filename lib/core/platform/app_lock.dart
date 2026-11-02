@@ -19,13 +19,19 @@ class LockState {
   final bool locked;
   final bool inactive;
 
-  LockState copyWith({bool? loaded, bool? enabled, int? timeoutMinutes, bool? locked, bool? inactive}) => LockState(
-        loaded: loaded ?? this.loaded,
-        enabled: enabled ?? this.enabled,
-        timeoutMinutes: timeoutMinutes ?? this.timeoutMinutes,
-        locked: locked ?? this.locked,
-        inactive: inactive ?? this.inactive,
-      );
+  LockState copyWith({
+    bool? loaded,
+    bool? enabled,
+    int? timeoutMinutes,
+    bool? locked,
+    bool? inactive,
+  }) => LockState(
+    loaded: loaded ?? this.loaded,
+    enabled: enabled ?? this.enabled,
+    timeoutMinutes: timeoutMinutes ?? this.timeoutMinutes,
+    locked: locked ?? this.locked,
+    inactive: inactive ?? this.inactive,
+  );
 }
 
 Future<bool> deviceCanAuthenticate() async {
@@ -93,7 +99,8 @@ class LockController extends Notifier<LockState> with WidgetsBindingObserver {
         state = state.copyWith(inactive: false);
         final at = _backgroundedAt;
         _backgroundedAt = null;
-        if (at != null && DateTime.now().difference(at).inMinutes >= state.timeoutMinutes) {
+        if (at != null &&
+            DateTime.now().difference(at).inMinutes >= state.timeoutMinutes) {
           state = state.copyWith(locked: true);
         }
         if (state.locked) unlock();
@@ -102,11 +109,32 @@ class LockController extends Notifier<LockState> with WidgetsBindingObserver {
     }
   }
 
+  /// Prompts for biometrics/passcode to confirm a sensitive change (e.g.
+  /// turning the lock off). Returns true on success. A device with no screen
+  /// lock can't prompt at all, so it must not be trapped with the lock on.
+  Future<bool> authenticate(String reason) async {
+    if (_prompting) return false;
+    _prompting = true;
+    try {
+      return await _auth.authenticate(
+        localizedReason: reason,
+        biometricOnly: false,
+      );
+    } catch (_) {
+      return !await deviceCanAuthenticate();
+    } finally {
+      _prompting = false;
+    }
+  }
+
   Future<void> unlock() async {
     if (_prompting || !state.locked) return;
     _prompting = true;
     try {
-      final ok = await _auth.authenticate(localizedReason: 'Unlock SpendWise', biometricOnly: false);
+      final ok = await _auth.authenticate(
+        localizedReason: 'Unlock SpendWise',
+        biometricOnly: false,
+      );
       if (ok) state = state.copyWith(locked: false);
     } catch (_) {
       // A device with no screen lock at all must never trap the user.
@@ -117,7 +145,9 @@ class LockController extends Notifier<LockState> with WidgetsBindingObserver {
   }
 }
 
-final lockSettingsProvider = NotifierProvider<LockController, LockState>(LockController.new);
+final lockSettingsProvider = NotifierProvider<LockController, LockState>(
+  LockController.new,
+);
 
 /// Covers the app while locked, and in the app switcher while inactive.
 class LockGate extends ConsumerWidget {
@@ -129,25 +159,35 @@ class LockGate extends ConsumerWidget {
     final s = ref.watch(lockSettingsProvider);
     final showLock = s.enabled && s.locked;
     final cover = showLock || (s.enabled && s.inactive);
-    return Stack(children: [
-      child,
-      if (cover)
-        Positioned.fill(
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            child: Center(
-              child: showLock
-                  ? Column(mainAxisSize: MainAxisSize.min, children: [
-                      const Icon(Icons.lock_outline, size: 48).pop(context),
-                      const SizedBox(height: 12),
-                      const Text('SpendWise is locked'),
-                      const SizedBox(height: 16),
-                      FilledButton(onPressed: ref.read(lockSettingsProvider.notifier).unlock, child: const Text('Unlock')),
-                    ])
-                  : const Icon(Icons.lock_outline, size: 48),
+    return Stack(
+      children: [
+        child,
+        if (cover)
+          Positioned.fill(
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              child: Center(
+                child: showLock
+                    ? Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 48).pop(context),
+                          const SizedBox(height: 12),
+                          const Text('SpendWise is locked'),
+                          const SizedBox(height: 16),
+                          FilledButton(
+                            onPressed: ref
+                                .read(lockSettingsProvider.notifier)
+                                .unlock,
+                            child: const Text('Unlock'),
+                          ),
+                        ],
+                      )
+                    : const Icon(Icons.lock_outline, size: 48),
+              ),
             ),
           ),
-        ),
-    ]);
+      ],
+    );
   }
 }
