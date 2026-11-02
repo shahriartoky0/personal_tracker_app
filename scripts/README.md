@@ -2,60 +2,64 @@
 
 ## publish-apk.ps1
 
-Builds the SpendWise APK and publishes it into this Git repo under `releases/`, so it shows up in the
-project on GitHub.
+Builds the SpendWise APK and places it under `releases/`, and refreshes the download section of the root
+`README.md`. **It never stages, commits or pushes** — git is entirely up to you.
 
 ### Usage
 
 Run from the project root in PowerShell:
 
 ```powershell
-./scripts/publish-apk.ps1                  # build release APK, commit, push
+./scripts/publish-apk.ps1                  # flutter clean + build release APK into releases/
+./scripts/publish-apk.ps1 -NoClean         # build without `flutter clean` (faster)
+./scripts/publish-apk.ps1 -Bump patch      # raise 1.0.0+1 -> 1.0.1+2 first (also: minor, major, build)
 ./scripts/publish-apk.ps1 -SkipBuild       # reuse the APK already in build/
-./scripts/publish-apk.ps1 -NoPush          # commit only, don't push
-./scripts/publish-apk.ps1 -Debug           # publish the debug APK instead
-./scripts/publish-apk.ps1 -SkipBuild -NoPush   # safe dry-ish run to check output
+./scripts/publish-apk.ps1 -Debug           # use the debug APK instead
 ```
 
 ### What it does
 
-1. Runs `flutter build apk --release` (skipped with `-SkipBuild`; `-Debug` builds debug).
-2. Reads `version:` from `pubspec.yaml` (e.g. `1.0.0+1`).
-3. Copies the APK from `build/app/outputs/flutter-apk/` to:
-   - `releases/spendwise-<version>.apk` (kept per version; debug builds get a `-debug` suffix)
+1. With `-Bump`, raises the `version:` in `pubspec.yaml` first.
+2. Runs `flutter clean`, `flutter pub get`, then `flutter build apk --release` (`-NoClean` skips the
+   clean; `-SkipBuild` skips all three; `-Debug` builds debug).
+3. Reads `version:` from `pubspec.yaml` (e.g. `1.0.0+1`).
+4. Copies the APK from `build/app/outputs/flutter-apk/` to:
+   - `releases/spendwise-<version>.apk` (debug builds get a `-debug` suffix)
    - `releases/spendwise-latest.apk` (overwritten each run, stable link)
-4. Stages **only** `releases/` (with `git add -f`), commits `release: apk <version>`.
-5. Pushes the current branch to `origin` and prints the GitHub URL of the file.
-
-If nothing changed in `releases/`, it exits without committing.
+5. Deletes every other `releases/spendwise-*.apk`, so only the current pubspec version is kept.
+6. Rewrites the download link and spec table (version, package, size, SHA-256, date, tooling, signing)
+   in the root `README.md` between the `<!-- APK:START -->` / `<!-- APK:END -->` markers (release builds
+   only).
+7. Prints which files changed (`releases/`, `README.md`, and `pubspec.yaml` with `-Bump`) so you can
+   review and commit them yourself.
 
 ### Parameters
 
 | Flag | Effect |
 |------|--------|
-| `-SkipBuild` | Don't run `flutter build`; use the existing APK (errors if missing) |
-| `-Debug` | Build/publish `app-debug.apk` instead of release |
-| `-NoPush` | Commit locally, skip `git push` |
+| `-NoClean` | Skip `flutter clean` / `pub get`; build incrementally |
+| `-Bump <part>` | Raise `pubspec.yaml` version before building: `major`/`minor`/`patch` reset the lower parts, `build` only raises `+N`. The `+N` build number always increases. Not allowed with `-SkipBuild` |
+| `-SkipBuild` | Don't clean or build; use the existing APK (errors if missing) |
+| `-Debug` | Use `app-debug.apk` instead of release (README is not updated) |
 
 ### Requirements
 
-- `flutter` and `git` on `PATH`
-- `origin` remote configured and push access
-- Run on a branch you are happy to commit to (it pushes the current branch)
+- `flutter` on `PATH`
+- `git` on `PATH` and an `origin` remote — only read-only queries, to build the download link in the README
 
 ### Caveats
 
-- Each versioned APK is a binary stored in Git history: expect ~20–50 MB growth per release. GitHub
-  rejects single files over 100 MB.
+- Each APK is ~20–50 MB and GitHub rejects single files over 100 MB. Old versions deleted from
+  `releases/` stay in Git history once committed. Deleted files show up in `git status` as deletions
+  for you to stage.
+- The README link points at `<repo>/raw/<branch>/releases/spendwise-latest.apk` for the branch you are on
+  when the script runs; it only works after you push that branch.
 - The release APK is signed with the debug key unless a keystore is configured in
   `android/app/build.gradle.kts`. Fine for sideloading on your own devices, not for the Play Store.
-- Bump `version:` in `pubspec.yaml` before a run if you want a new versioned file rather than
-  overwriting the existing one.
-- Your other uncommitted changes are never staged or committed by this script.
+- Use `-Bump` (or edit `version:` in `pubspec.yaml` by hand) for a new release; the previous version's APK is
+  then removed. Without a bump the current versioned file is overwritten.
 
 ### Where to find the APK
 
-- **Locally:** `releases/` in the project root (the script prints the full path).
-- **On GitHub:** after a push the script prints three links: the `releases/` folder, the versioned file,
-  and a direct download link for `spendwise-latest.apk`
-  (`<repo>/raw/<branch>/releases/spendwise-latest.apk`).
+- **Locally:** `releases/` in the project root.
+- **On GitHub:** after you push, via the link in the root `README.md`.

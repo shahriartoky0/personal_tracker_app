@@ -1,23 +1,30 @@
 <#
 .SYNOPSIS
-  Build the SpendWise APK and publish it into the Git repo under releases/.
+  Build the SpendWise APK and place it under releases/ (no git operations).
 
 .DESCRIPTION
-  1. flutter build apk --release   (skip with -SkipBuild, debug with -Debug)
+  0. optional -Bump major|minor|patch|build raises the pubspec.yaml version first (+build always +1)
+  1. flutter clean, flutter pub get, flutter build apk --release
+     (skip the whole build with -SkipBuild, skip only the clean with -NoClean, debug with -Debug)
   2. copy to releases/spendwise-<version>.apk and releases/spendwise-latest.apk
-  3. git add releases/ only, commit, push to origin (skip push with -NoPush)
+  3. delete every other releases/spendwise-*.apk so only the current pubspec version is released
+  4. refresh the download link + spec table in README.md (between the APK:START/APK:END markers)
 
-  Notes: each APK is a binary committed to Git (repo grows ~20-50 MB per version).
-  GitHub rejects files > 100 MB. Only releases/ is staged; other changes are untouched.
+  The script never stages, commits or pushes: git is left entirely to you. Each APK is a binary
+  (~20-50 MB per version); GitHub rejects files > 100 MB.
 
 .EXAMPLE
   ./scripts/publish-apk.ps1
-  ./scripts/publish-apk.ps1 -SkipBuild -NoPush
+  ./scripts/publish-apk.ps1 -Bump patch
+  ./scripts/publish-apk.ps1 -NoClean
+  ./scripts/publish-apk.ps1 -SkipBuild
 #>
 param(
   [switch]$SkipBuild,
+  [switch]$NoClean,
   [switch]$Debug,
-  [switch]$NoPush
+  [ValidateSet('major', 'minor', 'patch', 'build')]
+  [string]$Bump
 )
 
 $ErrorActionPreference = 'Stop'
@@ -26,7 +33,36 @@ Set-Location $root
 
 $mode = if ($Debug) { 'debug' } else { 'release' }
 
+# -Bump: raise the pubspec version before building so the APK carries it.
+# The +build number always increases (Android needs a higher versionCode to update).
+if ($Bump) {
+  if ($SkipBuild) { throw "-Bump cannot be combined with -SkipBuild (the existing APK has the old version)" }
+  $pubspec = Join-Path $root 'pubspec.yaml'
+  $raw = [IO.File]::ReadAllText($pubspec)
+  if ($raw -notmatch '(?m)^version:\s*(\d+)\.(\d+)\.(\d+)(?:\+(\d+))?\s*$') {
+    throw "pubspec.yaml version must look like 1.2.3+4"
+  }
+  $maj = [int]$Matches[1]; $min = [int]$Matches[2]; $pat = [int]$Matches[3]
+  $bld = if ($Matches[4]) { [int]$Matches[4] } else { 0 }
+  switch ($Bump) {
+    'major' { $maj++; $min = 0; $pat = 0 }
+    'minor' { $min++; $pat = 0 }
+    'patch' { $pat++ }
+  }
+  $bld++
+  $new = "$maj.$min.$pat+$bld"
+  $raw = [regex]::Replace($raw, '(?m)^version:.*$', "version: $new", 1)
+  [IO.File]::WriteAllText($pubspec, $raw, (New-Object Text.UTF8Encoding($false)))
+  Write-Host "Bumped pubspec.yaml version to $new"
+}
+
 if (-not $SkipBuild) {
+  if (-not $NoClean) {
+    flutter clean
+    if ($LASTEXITCODE -ne 0) { throw "flutter clean failed" }
+    flutter pub get
+    if ($LASTEXITCODE -ne 0) { throw "flutter pub get failed" }
+  }
   flutter build apk "--$mode"
   if ($LASTEXITCODE -ne 0) { throw "flutter build failed" }
 }
@@ -45,25 +81,80 @@ $versioned = "spendwise-$suffix.apk"
 Copy-Item $src (Join-Path $dir $versioned) -Force
 Copy-Item $src (Join-Path $dir 'spendwise-latest.apk') -Force
 
+# Only the current pubspec version stays released: drop every other APK.
+Get-ChildItem $dir -Filter 'spendwise-*.apk' |
+  Where-Object { $_.Name -ne $versioned -and $_.Name -ne 'spendwise-latest.apk' } |
+  ForEach-Object {
+    Remove-Item $_.FullName -Force
+    Write-Host "Removed old release $($_.Name)"
+  }
+
 $sizeMb = [math]::Round((Get-Item $src).Length / 1MB, 1)
 Write-Host "Copied $versioned and spendwise-latest.apk ($sizeMb MB) to releases/"
 Write-Host "Local file : $(Join-Path $dir $versioned)"
 
-git add -f -- releases
-git diff --cached --quiet -- releases
-if ($LASTEXITCODE -eq 0) { Write-Host "No changes to commit."; exit 0 }
-git commit -m "release: apk $suffix" -- releases
-if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
-
-if ($NoPush) { Write-Host "Committed (not pushed)."; exit 0 }
-
+# Read-only git queries, only used to build the download link for the README.
 $branch = (git rev-parse --abbrev-ref HEAD).Trim()
-git push origin $branch
-if ($LASTEXITCODE -ne 0) { throw "git push failed" }
-
 $remote = (git remote get-url origin).Trim() -replace '\.git$', ''
+
+# Keep the README download section (between the APK markers) in sync with this release.
+if (-not $Debug) {
+  $name, $build = $version -split '\+', 2
+  if (-not $build) { $build = '-' }
+  $sha = (Get-FileHash (Join-Path $dir 'spendwise-latest.apk') -Algorithm SHA256).Hash.ToLower()
+  $released = (Get-Date).ToString('dd MMM yyyy', [Globalization.CultureInfo]::InvariantCulture)
+
+  $gradle = Get-Content (Join-Path $root 'android/app/build.gradle.kts') -Raw
+  $pkg = if ($gradle -match 'applicationId\s*=\s*"([^"]+)"') { $Matches[1] } else { '-' }
+  $signing = if ($gradle -match 'signingConfigs\.getByName\("debug"\)') {
+    'Debug key (sideload only, not for the Play Store)'
+  } else { 'Release keystore' }
+
+  $tooling = 'Flutter'
+  try {
+    $fv = (flutter --version --machine | Out-String) | ConvertFrom-Json
+    $tooling = "Flutter $($fv.frameworkVersion) / Dart $(($fv.dartSdkVersion -split ' ')[0])"
+  } catch { Write-Host "Could not read Flutter version: $_" }
+
+  $block = @"
+<!-- APK:START -->
+## Download
+
+**[Download SpendWise v$name (APK)]($remote/raw/$branch/releases/spendwise-latest.apk)**
+
+| Spec | Value |
+|------|-------|
+| Version | $name (build $build) |
+| Package | ``$pkg`` |
+| Platform | Android |
+| Size | $sizeMb MB |
+| SHA-256 | ``$sha`` |
+| Released | $released |
+| Build | Release, $tooling |
+| Signing | $signing |
+
+Older builds are not kept in ``releases/``; this is always the latest version.
+<!-- APK:END -->
+"@
+
+  $readme = Join-Path $root 'README.md'
+  $text = [IO.File]::ReadAllText($readme)
+  if ($text -match '(?s)<!-- APK:START -->.*?<!-- APK:END -->') {
+    $text = [regex]::Replace($text, '(?s)<!-- APK:START -->.*?<!-- APK:END -->', { param($x) $block })
+  } else {
+    $text = $text.TrimEnd() + "`r`n`r`n" + $block + "`r`n"
+  }
+  [IO.File]::WriteAllText($readme, $text, (New-Object Text.UTF8Encoding($false)))
+  Write-Host "Updated README.md download section"
+}
+
 Write-Host ""
-Write-Host "APK published. Find it at:"
-Write-Host "  Folder   : $remote/tree/$branch/releases"
-Write-Host "  Versioned: $remote/blob/$branch/releases/$versioned"
-Write-Host "  Download : $remote/raw/$branch/releases/spendwise-latest.apk"
+Write-Host "Done. Nothing was committed or pushed - handle git yourself."
+$changed = @('releases/')
+if (-not $Debug) { $changed += 'README.md' }
+if ($Bump) { $changed += 'pubspec.yaml' }
+Write-Host "Files changed: $($changed -join ', ')"
+if (-not $Debug) {
+  Write-Host "Once pushed, the download link will be:"
+  Write-Host "  $remote/raw/$branch/releases/spendwise-latest.apk"
+}
